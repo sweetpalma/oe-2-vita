@@ -6,6 +6,8 @@
 void OE2_setRemastered(int enabled);
 int OE2_isRemastered(void);
 int OE2_toggleRemastered(void);
+void OE2_loadHostConfig(void);
+void OE2_saveHostConfig(void);
 void OE2_cycleLightRange(void);
 int OE2_getLightRangeSteps(void);
 int OE2_toggleFastTick(void);

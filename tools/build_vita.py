@@ -172,6 +172,7 @@ def build_vita_elf():
         "-fwrapv",
         "-funsigned-char",
         "-DOE2_WEB_BRIDGE",
+        "-DOE2_STANDALONE_BRIDGE",
         "-I" + str(ROOT / "engine/src"),
         "-I" + str(ROOT / "engine/src/game"),
         "-I" + str(ROOT / "host"),

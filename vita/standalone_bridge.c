@@ -4,11 +4,14 @@
 #include "standalone_bridge.h"
 #include "game.h"
 #include "lighting.h"
+#include "platform.h"
 #include "presentation.h"
+#include <stdlib.h>
 #include <string.h>
 
 static int remasteredMode = 1;
 static int rangeSteps = 5; /* 5 (Low default), 15 (Med), or 20 (High) steps */
+static int hostConfigLoaded = 0;
 static int fastTickMode = 0;
 static uint32_t worldPixels[640 * 640];
 static uint32_t litPixels[640 * 640];
@@ -61,6 +64,8 @@ static void apply_world_lighting(int x, int y, int w, int h)
 	IBitmap *b = Brew_screen();
 	if (!b || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > b->width || y + h > b->height)
 		return;
+	if (!hostConfigLoaded)
+		OE2_loadHostConfig();
 	ensure_lut565();
 	int count = w * h;
 	uint32_t sig = hash_world_pixels(count);
@@ -180,23 +185,65 @@ void OE2_captureRenderedWorld(Render *r)
 	}
 }
 
+void OE2_loadHostConfig(void)
+{
+	uint8_t *data = NULL;
+	size_t len = 0;
+	if (Plat_fileRead("LightingCfg", &data, &len) == 0) {
+		if (len >= 8 && data[0] == 'O' && data[1] == 'E' && data[2] == 'L' && data[3] == 'C') {
+			remasteredMode = data[4] ? 1 : 0;
+			if (data[5] == 5 || data[5] == 15 || data[5] == 20)
+				rangeSteps = data[5];
+		}
+		free(data);
+	}
+	const char *e = getenv("OE2_REMASTERED");
+	if (e)
+		remasteredMode = atoi(e) ? 1 : 0;
+	BrewLight_setRange(rangeSteps);
+	lastFrameSig = 0;
+	hostConfigLoaded = 1;
+}
+
+void OE2_saveHostConfig(void)
+{
+	if (getenv("OE2_REMASTERED"))
+		return;
+	uint8_t buf[8] = {
+		'O', 'E', 'L', 'C',
+		(uint8_t)(remasteredMode ? 1 : 0),
+		(uint8_t)rangeSteps,
+		0, 0
+	};
+	Plat_fileWrite("LightingCfg", buf, sizeof(buf));
+}
+
+static void ensure_host_config(void)
+{
+	if (!hostConfigLoaded)
+		OE2_loadHostConfig();
+}
+
 void OE2_setRemastered(int enabled)
 {
+	ensure_host_config();
 	remasteredMode = enabled ? 1 : 0;
 	lastFrameSig = 0;
+	OE2_saveHostConfig();
 }
 
 int OE2_isRemastered(void)
 {
+	ensure_host_config();
 	return remasteredMode;
 }
 
 int OE2_toggleRemastered(void)
 {
+	ensure_host_config();
 	remasteredMode = !remasteredMode;
 	lastFrameSig = 0;
-	toastText = remasteredMode ? "REMASTERED" : "CLASSIC";
-	toastFrames = 30;
+	OE2_saveHostConfig();
 	if (worldValid) {
 		IBitmap *b = Brew_screen();
 		if (b && worldX >= 0 && worldY >= 0 && worldX + worldW <= b->width && worldY + worldH <= b->height) {
@@ -223,6 +270,7 @@ int OE2_toggleRemastered(void)
 
 void OE2_cycleLightRange(void)
 {
+	ensure_host_config();
 	if (rangeSteps == 5) {
 		rangeSteps = 15;
 		toastText = "LIGHT: MED";
@@ -236,10 +284,12 @@ void OE2_cycleLightRange(void)
 	lastFrameSig = 0;
 	toastFrames = 30;
 	BrewLight_setRange(rangeSteps);
+	OE2_saveHostConfig();
 }
 
 int OE2_getLightRangeSteps(void)
 {
+	ensure_host_config();
 	return rangeSteps;
 }
 

@@ -14,6 +14,9 @@
  */
 
 #include "game.h"
+#ifdef OE2_STANDALONE_BRIDGE
+#include "standalone_bridge.h"
+#endif
 
 #define MOD_STORE_TABLE 0x464a0u /* 37 x {u32 itemType, u32 itemIndex, u32 price, u32 quantity} */
 #define MOD_STR_CHECK   0x46744u /* "\x87": check mark (equipped) */
@@ -783,6 +786,13 @@ static void buildOptions(Menu *menu, MenuSystem *ms, int menuId)
 	}
 	menu->volume = app->sndSys->volume;
 	Menus_setVolumeItem(menu, ms->numItems++);
+#ifdef OE2_STANDALONE_BRIDGE
+	String_setLength(&menu->scratch0, 0);
+	String_appendCStr_76f0(&menu->scratch0, "Lighting");
+	String_setLength(&menu->scratch1, 0);
+	Text_getString(cv, TEXT_GROUP_MENU, onOff(OE2_isRemastered()), &menu->scratch1);
+	MenuSystem_addItem(menu, &menu->scratch0, &menu->scratch1, 0);
+#endif
 }
 
 /* 100 in-game menu; inventory, quest log and map are disabled in familiar form

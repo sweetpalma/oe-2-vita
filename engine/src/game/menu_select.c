@@ -6,6 +6,9 @@
  */
 
 #include "game.h"
+#ifdef OE2_STANDALONE_BRIDGE
+#include "standalone_bridge.h"
+#endif
 
 #define MOD_STORE_TABLE 0x464a0u /* 37 x {u32 itemType, u32 itemIndex, u32 price, u32 quantity} */
 #define MOD_STR_BAD_INDEX 0x4675cu /* fatal error texts */
@@ -258,6 +261,12 @@ static int selectOptions(Menu *menus, int item)
 			Sound_applyVolume(snd);
 			String_setLength(&ms->items[3].text2, 0);
 			String_appendChar(String_appendInt(&ms->items[3].text2, snd->volume), '%');
+#ifdef OE2_STANDALONE_BRIDGE
+		} else if (item == 4) {
+			int on = OE2_toggleRemastered();
+			String_setLength(&ms->items[4].text2, 0);
+			Text_getString(cv, TEXT_GROUP_MENU, on ? 0x84 : 0x85, &ms->items[4].text2);
+#endif
 		}
 	} else {
 		int volumeItem;
@@ -293,6 +302,14 @@ static int selectOptions(Menu *menus, int item)
 			Sound_applyVolume(snd);
 			menus->volume = snd->volume;
 			volumeItem = menus->soundItem;
+#ifdef OE2_STANDALONE_BRIDGE
+		} else if (item == 3) {
+			int on = OE2_toggleRemastered();
+			String_setLength(&ms->items[3].text2, 0);
+			Text_getString(cv, TEXT_GROUP_MENU, on ? 0x84 : 0x85, &ms->items[3].text2);
+			Game_saveConfig(app->game);
+			return ms->menu;
+#endif
 		} else {
 			Game_saveConfig(app->game);
 			return ms->menu;

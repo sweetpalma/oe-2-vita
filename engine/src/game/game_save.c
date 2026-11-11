@@ -9,6 +9,9 @@
  */
 
 #include "game.h"
+#ifdef OE2_STANDALONE_BRIDGE
+#include "standalone_bridge.h"
+#endif
 
 /* Save-file chunk magics (little-endian ASCII) */
 #define MAGIC_CONFIG_HEAD 0x47464348 /* "HCFG" */
@@ -622,6 +625,9 @@ int Game_loadConfig(Game *x)
 
 	if (!App_isConfigValid()) {
 		Game_deleteSaveFiles();
+#ifdef OE2_STANDALONE_BRIDGE
+		OE2_loadHostConfig();
+#endif
 		return 0;
 	}
 
@@ -653,6 +659,9 @@ int Game_loadConfig(Game *x)
 		}
 	}
 	InputStream_dtor(&stream, 0);
+#ifdef OE2_STANDALONE_BRIDGE
+	OE2_loadHostConfig();
+#endif
 	return ok;
 }
 
@@ -690,6 +699,9 @@ void Game_saveConfig(Game *game)
 			Resource_dispose(&os);
 	}
 	OutputStream_dtor(&os, 0);
+#ifdef OE2_STANDALONE_BRIDGE
+	OE2_saveHostConfig();
+#endif
 }
 
 /* ---- player record (SD_0 = last save, SD_1 = level-start snapshot) ---- */
