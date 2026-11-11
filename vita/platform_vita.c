@@ -76,8 +76,10 @@ int Plat_init(int screenW, int screenH, const char *title)
 		fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError());
 		return -1;
 	}
+#ifndef __vita__
 	SDL_RenderSetLogicalSize(ren, screenW, screenH);
 	SDL_RenderSetIntegerScale(ren, SDL_FALSE);
+#endif
 	tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, screenW, screenH);
 	rgbaFrame = calloc((size_t)screenW * (size_t)screenH, sizeof(uint32_t));
 	if (!tex || !rgbaFrame) {

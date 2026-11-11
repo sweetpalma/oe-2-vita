@@ -99,17 +99,19 @@ int MenuSystem_startup(MenuSystem *ms)
 void MenuSystem_adjustPoints(MenuSystem *menu)
 {
 	Canvas *cv = g_app->canvas;
+	int halfW = (cv->viewRect[2] > 176 ? 176 : cv->viewRect[2]) / 2;
+	int halfH = (cv->viewRect[3] > 200 ? 200 : cv->viewRect[3]) / 2;
 
 	for (int i = 0; i < menu->numBgKeys; i++) {
 		int32_t *k = &menu->bgKeys[i * 3];
-		int right = k[0] + cv->screenCenterX;
+		int right = k[0] + halfW;
 		if (right - 300 > 0)
 			k[0] -= right - 0x127;
-		int left = k[0] - cv->screenCenterX;
+		int left = k[0] - halfW;
 		if (left < 0)
 			k[0] += left;
-		k[0] -= cv->screenCenterX;
-		k[1] -= cv->screenCenterY;
+		k[0] -= halfW;
+		k[1] -= halfH;
 		if (k[0] < 0)
 			k[0] = 0;
 		if (k[1] < 0)
@@ -756,30 +758,36 @@ void MenuSystem_scrollBackground(MenuSystem *ms)
 		y = 599;
 
 	Canvas *cv = app->canvas;
-	int w = cv->viewRect[2];
-	int h = cv->viewRect[3];
+	int w = cv->viewRect[2] > 176 ? 176 : cv->viewRect[2];
+	int h = cv->viewRect[3] > 200 ? 200 : cv->viewRect[3];
+	int mx = (cv->viewRect[2] - w) / 2;
+	int my = (cv->viewRect[3] - h) / 2;
 	int below = 600 - y;
 	if (below <= h) {
 		/* the part past the bottom edge comes from the top of the picture */
-		Canvas_drawRegion(cv, &ms->imgMenuMap, x, 0, w, h - below, 0, 0, below, 0, 0, 0);
+		Canvas_drawRegion(cv, &ms->imgMenuMap, x, 0, w, h - below, 0, mx, my + below, 0, 0, 0);
 		h = below;
 	}
-	Canvas_drawRegion(cv, &ms->imgMenuMap, x, y, w, h, 0, 0, 0, 0, 0, 0);
+	Canvas_drawRegion(cv, &ms->imgMenuMap, x, y, w, h, 0, mx, my, 0, 0, 0);
 }
 
 /* The "More Games" page. */
 static void paintMoreGames(MenuSystem *menu)
 {
 	Canvas *cv = g_app->canvas;
+	int menuW = cv->viewRect[2] > 176 ? 176 : cv->viewRect[2];
+	int menuH = cv->viewRect[3] > 200 ? 200 : cv->viewRect[3];
+	int menuX = (cv->viewRect[2] - menuW) / 2;
+	int menuY = (cv->viewRect[3] - menuH) / 2;
 
 	MenuSystem_scrollBackground(menu);
-	Canvas_drawStringFlags(cv, &menu->items[0].text, cv->screenCenterX, 5, 0x10, 1);
-	Canvas_drawImage(cv, &menu->imgMoreGames, cv->screenCenterX, 0x23, 0x11, 0);
-	int x = cursorBob() + (int)((uint32_t)(cv->viewRect[2] - menu->imgMoreGames.width) >> 2);
-	Canvas_drawImage(cv, &menu->img9, x, 0x49, 0x11, 0);
-	Canvas_drawImage(cv, &menu->img8, cv->viewRect[2] - x, 0x49, 0x11, 0);
-	Canvas_drawString(cv, &menu->items[1].text, cv->screenCenterX, 0x87, 0x10);
-	Canvas_drawStringFlags(cv, &menu->items[2].text, cv->screenCenterX, 0x9b, 0x10, 8);
+	Canvas_drawStringFlags(cv, &menu->items[0].text, cv->screenCenterX, menuY + 5, 0x10, 1);
+	Canvas_drawImage(cv, &menu->imgMoreGames, cv->screenCenterX, menuY + 0x23, 0x11, 0);
+	int x = cursorBob() + (int)((uint32_t)(menuW - menu->imgMoreGames.width) >> 2);
+	Canvas_drawImage(cv, &menu->img9, menuX + x, menuY + 0x49, 0x11, 0);
+	Canvas_drawImage(cv, &menu->img8, menuX + menuW - x, menuY + 0x49, 0x11, 0);
+	Canvas_drawString(cv, &menu->items[1].text, cv->screenCenterX, menuY + 0x87, 0x10);
+	Canvas_drawStringFlags(cv, &menu->items[2].text, cv->screenCenterX, menuY + 0x9b, 0x10, 8);
 }
 
 /* Background for front-end menus over the grey 3D map: slow spin (or the
@@ -844,7 +852,11 @@ static void paintStatusHeader(int top)
 	String_appendInt(s, maxArmor);
 	Canvas_drawStringRange(cv, s, cv->viewRect[0] + (cv->viewRect[2] >> 1), top + 3, 0x30, 0, -1, 0);
 	Graphics_setColor(cv->graphics, COLOR_BLACK);
-	Graphics_drawLine(cv->graphics, cv->viewRect[0], top + 10, cv->viewRect[2], top + 10);
+	{
+		int menuW = cv->viewRect[2] > 176 ? 176 : cv->viewRect[2];
+		int menuX = (cv->viewRect[2] - menuW) / 2;
+		Graphics_drawLine(cv->graphics, cv->viewRect[0] + menuX, top + 10, cv->viewRect[0] + menuX + menuW, top + 10);
+	}
 }
 
 /* 0x0002d4fc Draw the current menu. */
@@ -852,6 +864,10 @@ void MenuSystem_paint(MenuSystem *menu)
 {
 	Applet *app = g_app;
 	Canvas *cv = app->canvas;
+	int menuW = cv->viewRect[2] > 176 ? 176 : cv->viewRect[2];
+	int menuH = cv->viewRect[3] > 200 ? 200 : cv->viewRect[3];
+	int menuX = (cv->viewRect[2] - menuW) / 2;
+	int menuY = (cv->viewRect[3] - menuH) / 2;
 
 	if (menu->menu == 0x18) {
 		if (menu->anim[menu->moreGamesPage] != NULL) {
@@ -878,11 +894,11 @@ void MenuSystem_paint(MenuSystem *menu)
 	}
 
 	/* ---- background ---- */
-	int top = 1;
+	int top = menuY + 1;
 	MenuItem *selItem = &menu->items[menu->selectedIndex];
 	if (isStoreMenu(menu->menu) || isStoreMenu(menu->backMenu)) {
-		Canvas_drawDialogFrame(cv, 0, 0, cv->viewRect[2], cv->viewRect[3], 1);
-		top = 0xd;
+		Canvas_drawDialogFrame(cv, menuX, menuY, menuW, menuH, 1);
+		top = menuY + 0xd;
 	} else if (menu->menu < 100) {
 		if (MenuSystem_isBaseMenu(menu) == 0) {
 			if (menu->imgMenuMap.bitmap != NULL && menu->menu > 2 && menu->menu < 0x15)
@@ -891,10 +907,10 @@ void MenuSystem_paint(MenuSystem *menu)
 			paintBaseMapBackground(menu);
 		}
 		if (menu->imgBG != NULL)
-			Canvas_drawImage(cv, menu->imgBG, cv->screenCenterX, 1, 0x11, 0);
+			Canvas_drawImage(cv, menu->imgBG, cv->screenCenterX, menuY + 1, 0x11, 0);
 	} else {
-		Canvas_drawDialogFrame(cv, 0, 0, cv->viewRect[2], cv->viewRect[3], 0);
-		top = 0xf;
+		Canvas_drawDialogFrame(cv, menuX, menuY, menuW, menuH, 0);
+		top = menuY + 0xf;
 	}
 
 	/* ---- status header on store / inventory screens ---- */
@@ -922,43 +938,45 @@ void MenuSystem_paint(MenuSystem *menu)
 	default:
 		if (menu->menu == 0x18) {
 			MenuSystem_scrollBackground(menu);
-			Canvas_drawImage(cv, &menu->imgMoreGames, cv->screenCenterX, 0x23, 0x11, 0);
+			Canvas_drawImage(cv, &menu->imgMoreGames, cv->screenCenterX, menuY + 0x23, 0x11, 0);
 			leftX = 0;
-			y = (cv->renderRect[3] - app->menuSystem->numItems * 12) / 2 + 0x4e;
+			y = menuY + (cv->renderRect[3] - app->menuSystem->numItems * 12) / 2 + 0x4e;
 		} else if (menu->type == MENU_TYPE_PROMPT) {
 			leftX = 0;
-			y = (cv->renderRect[3] - app->menuSystem->numItems * 12) / 2;
+			y = menuY + (cv->renderRect[3] - app->menuSystem->numItems * 12) / 2;
 		} else {
 			leftX = (menu->type == MENU_TYPE_OPTIONS) ? 0xd : 0x28;
-			y = 0x50;
+			y = menuY + 0x50;
 		}
 		break;
 	}
+	leftX += menuX;
 
 	int showHelp = 0;
 	id = menu->menu;
 	if (id != 0x12 && id != 1 && id != 0x18 && String_length(&selItem->help) > 0)
 		showHelp = 1;
-	int viewH = cv->viewRect[3];
+	int viewH = menuH;
+	int yRel = y - menuY;
 	int storeFooter = id >= 0x12d && (id < 0x139 || id == 500);
 
 	int avail;
 	if (storeFooter)
-		avail = viewH - y - 0x30;
+		avail = viewH - yRel - 0x30;
 	else if (showHelp)
-		avail = viewH - y - 0x28;
+		avail = viewH - yRel - 0x28;
 	else if (id < 100)
-		avail = viewH - y;
+		avail = viewH - yRel;
 	else
 		avail = viewH - 0x1a;
 	menu->visibleItems = avail / 12;
 	if (id > 4 && id < 0xd)
-		y = (viewH - menu->visibleItems * 12) >> 1;
+		y = menuY + ((viewH - menu->visibleItems * 12) >> 1);
 
 	int visible = menu->visibleItems;
 	int hasScrollBar = visible > 0 && menu->numItems > visible;
 	if (hasScrollBar)
-		Canvas_drawScrollBar(cv, cv->viewRect[2], y, visible * 12, menu->scrollIndex, menu->scrollIndex + visible,
+		Canvas_drawScrollBar(cv, menuX + menuW, y, visible * 12, menu->scrollIndex, menu->scrollIndex + visible,
 				     menu->numItems, visible);
 
 	int allLarge = 0;
@@ -970,8 +988,8 @@ void MenuSystem_paint(MenuSystem *menu)
 	for (int i = menu->scrollIndex; i < menu->numItems; i++) {
 		MenuItem *it = &menu->items[i];
 		String *text = &it->text;
-		int viewW = cv->viewRect[2];
-		int rightX = viewW - 4;
+		int viewW = menuW;
+		int rightX = menuX + viewW - 4;
 		int large = allLarge || (it->flags & ITEM_LARGE);
 		int lineH = large ? 0x11 : 12;
 		int charW = large ? 10 : 7;
@@ -994,7 +1012,7 @@ void MenuSystem_paint(MenuSystem *menu)
 				/* right-aligned value column */
 				if (String_length(&it->text2) >= 1 || (it->flags & ITEM_NUMBER)) {
 					if (menu->visibleItems != 0)
-						rightX = viewW - 0xb;
+						rightX = menuX + viewW - 0xb;
 					if (it->flags & ITEM_NUMBER) {
 						String field, cut;
 						String_ctorCStr(&field, mod_cstr(MOD_STR_DIGITS));
@@ -1061,22 +1079,22 @@ void MenuSystem_paint(MenuSystem *menu)
 		Text_getString(cv, 0, 0xb4, &cv->scratch);
 		cv->textColor = TEXT_HEADER;
 		TextUtil_dehyphenate(app->textUtil, &cv->scratch);
-		Canvas_drawStringFlags(cv, &cv->scratch, cv->viewRect[2] / 2, cv->viewRect[3] - 0x26, 0x12, 0x10);
+		Canvas_drawStringFlags(cv, &cv->scratch, cv->screenCenterX, menuY + menuH - 0x26, 0x12, 0x10);
 	}
 
 	/* ---- help line of the selected item, with its icon ---- */
 	if (showHelp) {
-		int hx = 6;
-		int h = cv->viewRect[3];
+		int hx = menuX + 6;
+		int h = menuY + menuH;
 		Graphics_setColor(cv->graphics, COLOR_BLACK);
-		Graphics_drawLine(cv->graphics, 6, h - 0x26, cv->viewRect[2], h - 0x26);
+		Graphics_drawLine(cv->graphics, menuX + 6, h - 0x26, menuX + menuW, h - 0x26);
 		if (selItem->param != 0x7f) {
 			Graphics_setColor(cv->graphics, COLOR_BLACK);
-			Graphics_fillRect(cv->graphics, 7, h - 0x24, 0x19, 0x19);
-			Canvas_drawLargeIcon(cv, selItem->param, 8, h - 0x23, 0, 0, 0);
+			Graphics_fillRect(cv->graphics, menuX + 7, h - 0x24, 0x19, 0x19);
+			Canvas_drawLargeIcon(cv, selItem->param, menuX + 8, h - 0x23, 0, 0, 0);
 			Graphics_setColor(cv->graphics, COLOR_FRAME);
-			Graphics_drawRect(cv->graphics, 7, h - 0x24, 0x19, 0x19);
-			hx = 0x1e;
+			Graphics_drawRect(cv->graphics, menuX + 7, h - 0x24, 0x19, 0x19);
+			hx = menuX + 0x1e;
 		}
 		Canvas_drawString(cv, &selItem->help, hx + 3, h - 0x23, 0);
 	}

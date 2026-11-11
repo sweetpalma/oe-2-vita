@@ -224,7 +224,8 @@ void Canvas_drawDialog(Canvas *canvas)
 	if (canvas->dialogText.len == 0)
 		return;
 
-	boxW = canvas->viewRect[2];
+	boxW = canvas->viewRect[2] > 176 ? 176 : canvas->viewRect[2];
+	boxX = (int16_t)((canvas->viewRect[2] - boxW) / 2);
 	boxH = 0x36;
 	boxY = (int16_t)(canvas->viewRect[3] - 0x36);
 
@@ -283,7 +284,7 @@ void Canvas_drawDialog(Canvas *canvas)
 			Canvas_drawRegion(canvas, &hud->imgBottombarIcon, 0, canvas->dialogPortrait * 20, 14, 20, 0,
 					  boxX + 2, boxY - 16, 0, 0, 0);
 			Canvas_drawRegion(canvas, &hud->imgBottombarIcon, 0, canvas->dialogPortrait * 20, 14, 20, 0,
-					  boxW - 16, boxY - 16, 0, 0, 0);
+					  boxX + boxW - 16, boxY - 16, 0, 0, 0);
 		}
 		Canvas_drawStringRange(canvas, &canvas->dialogText, canvas->screenCenterX, boxY - 12, 0x10,
 				       canvas->dialogLines[0], canvas->dialogLines[1], textFlags);
@@ -314,20 +315,20 @@ void Canvas_drawDialog(Canvas *canvas)
 		Graphics_setColor(canvas->graphics, color);
 		Graphics_fillRect(canvas->graphics, boxX + 2, boxY + 1, boxW - 4, boxH - 2);
 		Graphics_drawLine(canvas->graphics, boxX + 1, boxY + 6, boxX + 1, bottom - 6);
-		Graphics_drawLine(canvas->graphics, boxW - 2, boxY + 6, boxW - 2, bottom - 6);
+		Graphics_drawLine(canvas->graphics, boxX + boxW - 2, boxY + 6, boxX + boxW - 2, bottom - 6);
 		Graphics_setColor(canvas->graphics, -1);
-		Graphics_drawLine(canvas->graphics, boxX + 6, boxY, boxW - 6, boxY);
-		Graphics_drawLine(canvas->graphics, boxX + 6, bottom - 1, boxW - 6, bottom - 1);
+		Graphics_drawLine(canvas->graphics, boxX + 6, boxY, boxX + boxW - 6, boxY);
+		Graphics_drawLine(canvas->graphics, boxX + 6, bottom - 1, boxX + boxW - 6, bottom - 1);
 		Graphics_drawLine(canvas->graphics, boxX, boxY + 6, boxX, bottom - 6);
-		Graphics_drawLine(canvas->graphics, boxW - 1, boxY + 6, boxW - 1, bottom - 6);
+		Graphics_drawLine(canvas->graphics, boxX + boxW - 1, boxY + 6, boxX + boxW - 1, bottom - 6);
 		Canvas_drawRegion(canvas, corners, 0, 0, 6, 6, 0, boxX, boxY, 5, 10, 0);
 		Canvas_drawRegion(canvas, corners, 0, 6, 6, 6, 0, boxX, bottom, 6, 10, 0);
-		Canvas_drawRegion(canvas, corners, 6, 0, 6, 6, 0, boxW, boxY, 9, 10, 0);
-		Canvas_drawRegion(canvas, corners, 6, 6, 6, 6, 0, boxW, bottom, 10, 10, 0);
+		Canvas_drawRegion(canvas, corners, 6, 0, 6, 6, 0, boxX + boxW, boxY, 9, 10, 0);
+		Canvas_drawRegion(canvas, corners, 6, 6, 6, 6, 0, boxX + boxW, bottom, 10, 10, 0);
 
 		if (canvas->dialogStyle == 1) {
 			Canvas_drawRegion(canvas, &hud->imgWandChat, 0, 0, 0xf, 9, 0,
-					  boxX + canvas->screenCenterX - 0x40, bottom - 1, 4, 0, 0);
+					  boxX + (boxW >> 1) - 0x40, bottom - 1, 4, 0, 0);
 			if (canvas->dialogTopLine < 2) {
 				/* the wand's face bobs on the first page */
 				int bob = 2 - ((int)g_app->time / 500) % 3;
@@ -337,7 +338,7 @@ void Canvas_drawDialog(Canvas *canvas)
 						  boxX + bob + 3, boxY + bob + 1, 0, 0, 0);
 			}
 		} else if (canvas->dialogStyle == 8) {
-			Canvas_drawImage(canvas, &canvas->imgPlayerChat, boxX + canvas->screenCenterX, bottom - 1, 4, 0);
+			Canvas_drawImage(canvas, &canvas->imgPlayerChat, boxX + (boxW >> 1), bottom - 1, 4, 0);
 			if (canvas->dialogTopLine < 2) {
 				int top = canvas->dialogTopLine;
 
@@ -346,7 +347,7 @@ void Canvas_drawDialog(Canvas *canvas)
 			}
 		} else if (canvas->dialogStyle != 7) {
 			Canvas_drawRegion(canvas, &canvas->imgNpcChat, 0, 0, 0xf, 9, 0,
-					  boxX + canvas->screenCenterX - 0x40, boxY + 1, 6, 10, 0);
+					  boxX + (boxW >> 1) - 0x40, boxY + 1, 6, 10, 0);
 		}
 	}
 
@@ -380,7 +381,7 @@ void Canvas_drawDialog(Canvas *canvas)
 	    canvas->dialogNumLines - canvas->dialogViewLines <= canvas->dialogTopLine) {
 		int bob = wobble(((int)g_app->time / 200) % 4);
 		int choiceY = boxY + canvas->dialogViewLines * 12 - 10;
-		int choiceX = (boxW >> 1) - 0x36;
+		int choiceX = boxX + (boxW >> 1) - 0x36;
 		String yesNo;
 
 		String_ctor(&yesNo);

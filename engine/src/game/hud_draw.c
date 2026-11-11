@@ -431,7 +431,10 @@ void Hud_drawSpeechBubble(Hud *hud, int unused, int force)
 			box = wandBox;
 			goto draw;
 		}
-		hud->layout[0x1c] = (int16_t)(cv->viewRect[2] / 2 - (hud->maxLineLen * 7 + 9));
+		{
+			int uiW = cv->viewRect[2] > 176 ? 176 : cv->viewRect[2];
+			hud->layout[0x1c] = (int16_t)(uiW / 2 - (hud->maxLineLen * 7 + 9));
+		}
 		box = playerBox;
 	}
 
@@ -702,42 +705,46 @@ void Hud_drawControlsHelp(Hud *hud)
 
 	/* the anchor arrows are recoloured black -> label colour (blend mode 10) */
 	Render_setBlendColors(app->render, (int)0xff000000, labelBg);
+	{
+		int ox = cv->screenCenterX - 88;
+		int rx = cv->viewRect[2] - 176;
 
-	Canvas_drawLabelBox(cv, hud_helpText(0xac, 0), 0, bottom - 0x46, labelBg, -1);
-	Canvas_drawRegion(cv, anchors, 9, 9, 9, 9, 0, 4, bottom - 0x36, 0, 10, 0);
+		Canvas_drawLabelBox(cv, hud_helpText(0xac, 0), ox + 0, bottom - 0x46, labelBg, -1);
+		Canvas_drawRegion(cv, anchors, 9, 9, 9, 9, 0, ox + 4, bottom - 0x36, 0, 10, 0);
 
-	Canvas_drawLabelBox(cv, hud_helpText(0xad, 1), 0x30, bottom - 0x34, labelBg, -1);
-	Canvas_drawRegion(cv, anchors, 9, 9, 9, 9, 0, 0x45, bottom - 0x24, 0, 10, 0);
+		Canvas_drawLabelBox(cv, hud_helpText(0xad, 1), ox + 0x30, bottom - 0x34, labelBg, -1);
+		Canvas_drawRegion(cv, anchors, 9, 9, 9, 9, 0, ox + 0x45, bottom - 0x24, 0, 10, 0);
 
-	Canvas_drawLabelBox(cv, hud_helpText(0xae, 1), 0x5c, bottom - 0x34, labelBg, -1);
-	Canvas_drawRegion(cv, anchors, 9, 9, 9, 9, 0, 0x70, bottom - 0x24, 0, 10, 0);
+		Canvas_drawLabelBox(cv, hud_helpText(0xae, 1), ox + 0x5c, bottom - 0x34, labelBg, -1);
+		Canvas_drawRegion(cv, anchors, 9, 9, 9, 9, 0, ox + 0x70, bottom - 0x24, 0, 10, 0);
 
-	Canvas_drawLabelBox(cv, hud_helpText(0xaf, 0), 100, bottom - 0x4c, labelBg, -1);
-	Canvas_drawRegion(cv, anchors, 9, 0, 9, 9, 0, 0x94, bottom - 0x48, 0, 10, 0);
-	Graphics_drawLine(g, 0x9d, bottom - 0x44, 0x9d, bottom - 0x1c);
+		Canvas_drawLabelBox(cv, hud_helpText(0xaf, 0), ox + 100, bottom - 0x4c, labelBg, -1);
+		Canvas_drawRegion(cv, anchors, 9, 0, 9, 9, 0, ox + 0x94, bottom - 0x48, 0, 10, 0);
+		Graphics_drawLine(g, ox + 0x9d, bottom - 0x44, ox + 0x9d, bottom - 0x1c);
 
-	if (app->player->equippedRing != 0) {
-		Canvas_drawLabelBox(cv, hud_helpText(0xb0, 0), 0x10, 0x37, labelBg, -1);
-		Canvas_drawRegion(cv, anchors, 0, 0, 9, 9, 0, 0x22, 0x38, ANCHOR_BOTTOM, 10, 0);
-		Graphics_drawLine(g, 0x26, 0x1c, 0x26, 0x2e);
-		Graphics_drawLine(g, 0x14, 0x1c, 0x26, 0x1c);
-	}
+		if (app->player->equippedRing != 0) {
+			Canvas_drawLabelBox(cv, hud_helpText(0xb0, 0), 0x10, 0x37, labelBg, -1);
+			Canvas_drawRegion(cv, anchors, 0, 0, 9, 9, 0, 0x22, 0x38, ANCHOR_BOTTOM, 10, 0);
+			Graphics_drawLine(g, 0x26, 0x1c, 0x26, 0x2e);
+			Graphics_drawLine(g, 0x14, 0x1c, 0x26, 0x1c);
+		}
 
-	facing = app->player->facingEntity;
-	if (facing != NULL && facing->def->eType != 0
-	    && (facing->def->eType != 0xc || (facing->info & 0x80000) != 0)) {
-		Canvas_drawLabelBox(cv, hud_helpText(0xb1, 1), 0x3c, 0x1c, labelBg, -1);
-		Canvas_drawRegion(cv, anchors, 0, 0, 9, 9, 0, 0x49, 0x1d, ANCHOR_BOTTOM, 10, 0);
-		Graphics_drawLine(g, 0x4d, 0x14, 0x4d, 0xf);
-	}
+		facing = app->player->facingEntity;
+		if (facing != NULL && facing->def->eType != 0
+		    && (facing->def->eType != 0xc || (facing->info & 0x80000) != 0)) {
+			Canvas_drawLabelBox(cv, hud_helpText(0xb1, 1), 0x3c, 0x1c, labelBg, -1);
+			Canvas_drawRegion(cv, anchors, 0, 0, 9, 9, 0, 0x49, 0x1d, ANCHOR_BOTTOM, 10, 0);
+			Graphics_drawLine(g, 0x4d, 0x14, 0x4d, 0xf);
+		}
 
-	if (app->player->numStatusEffects > 0) {
-		Graphics_setColor(g, labelBg);
-		Graphics_fillRect(g, 0x74, 0, 0x36, 0x1c);
-		Graphics_setColor(g, -1);
-		Graphics_drawRect(g, 0x74, 0, 0x36, 0x1c);
-		Canvas_drawStringRange(cv, hud_helpText(0xb2, 1), 0x76, 2, 0, 0, -1, 0);
-		Canvas_drawStringRange(cv, hud_helpText(0xb3, 1), 0x76, 0xf, 0, 0, -1, 0);
-		Canvas_drawRegion(cv, anchors, 9, 9, 9, 9, 0, 0x8c, 0x1c, 0, 10, 0);
+		if (app->player->numStatusEffects > 0) {
+			Graphics_setColor(g, labelBg);
+			Graphics_fillRect(g, rx + 0x74, 0, 0x36, 0x1c);
+			Graphics_setColor(g, -1);
+			Graphics_drawRect(g, rx + 0x74, 0, 0x36, 0x1c);
+			Canvas_drawStringRange(cv, hud_helpText(0xb2, 1), rx + 0x76, 2, 0, 0, -1, 0);
+			Canvas_drawStringRange(cv, hud_helpText(0xb3, 1), rx + 0x76, 0xf, 0, 0, -1, 0);
+			Canvas_drawRegion(cv, anchors, 9, 9, 9, 9, 0, rx + 0x8c, 0x1c, 0, 10, 0);
+		}
 	}
 }

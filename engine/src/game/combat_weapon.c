@@ -153,7 +153,8 @@ void Combat_drawWeapon(Combat *combat)
 
 	if (flip)
 		ox = -ox;
-	int scale = (render->width << 16) / 0x8000;
+	int refW = render->width > 176 ? 176 : render->width;
+	int scale = (refW << 16) / 0x8000;
 	int wx = ox + shakeX;
 	int wy = oy + shakeY;
 	int x = screenX(scale, wx);

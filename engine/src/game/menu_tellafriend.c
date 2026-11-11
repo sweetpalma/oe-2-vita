@@ -50,7 +50,8 @@ void Menu_buildContactsPage(Menu *menu)
 	Canvas *cv = app->canvas;
 	String empty, empty2;
 
-	menu->contactsPerPage = (cv->viewRect[3] - 0x42) / 12 - 2;
+	int menuH = cv->viewRect[3] > 200 ? 200 : cv->viewRect[3];
+	menu->contactsPerPage = (menuH - 0x42) / 12 - 2;
 	menu->numContactPages = (menu->numContacts + menu->contactsPerPage - 1) / menu->contactsPerPage;
 
 	String_ctor(&empty);

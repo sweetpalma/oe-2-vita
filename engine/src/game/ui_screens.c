@@ -234,8 +234,12 @@ void Canvas_drawAutomap(Canvas *canvas, int full)
 	Game *game = g_app->game;
 	Graphics *g = canvas->graphics;
 
-	int availW = canvas->screenRect[2] - 2;
-	int availH = canvas->usableHeight - 0x16;
+	int boxW = canvas->screenRect[2] > 176 ? 176 : canvas->screenRect[2];
+	int boxH = canvas->usableHeight > 200 ? 200 : canvas->usableHeight;
+	int boxX = (canvas->screenRect[2] - boxW) / 2 - canvas->viewRect[0];
+	int boxY = (canvas->usableHeight - boxH) / 2 - canvas->viewRect[1];
+	int availW = boxW - 2;
+	int availH = boxH - 0x16;
 	int extent = availW >= availH ? availH : availW;
 	int cell = extent / 32;
 	int left = canvas->screenRect[2] / 2 - cell * 16 - canvas->viewRect[0];
@@ -245,8 +249,7 @@ void Canvas_drawAutomap(Canvas *canvas, int full)
 	if (full) {
 		Graphics_setColor(g, (int)0xff000000);
 		Graphics_fillRect(g, 0, 0, canvas->screenRect[2], canvas->usableHeight);
-		Canvas_drawDialogFrame(canvas, -canvas->viewRect[0], -canvas->viewRect[1],
-		                       canvas->screenRect[2], canvas->usableHeight, 0);
+		Canvas_drawDialogFrame(canvas, boxX, boxY, boxW, boxH, 0);
 	}
 
 	if ((game->automapFlag == 0 || canvas->mapId != 7) && full) {
@@ -669,6 +672,8 @@ void Canvas_drawTravelMap(Canvas *canvas)
 
 	int ox = (canvas->screenRect[2] - canvas->imgTravelMap.width) / 2 - canvas->viewRect[0];
 	int oy = (canvas->screenRect[3] - canvas->imgTravelMap.height) / 2 - canvas->viewRect[1];
+	if (oy < 0)
+		oy = 0;
 	Canvas_drawImageSimple(canvas, &canvas->imgTravelMap, ox, oy, 0);
 
 	int blinkMode = ((g_app->time / 300) & 1) == 0 ? 0xc : 0;
@@ -712,6 +717,8 @@ void Canvas_drawTravelMap(Canvas *canvas)
 				TextUtil_dehyphenate(g_app->textUtil, &canvas->scratch);
 				int bx = canvas->imgTravelMap.width + ox;
 				int by = canvas->imgTravelMap.height + oy - 4;
+				if (by > canvas->screenRect[3] - 4)
+					by = canvas->screenRect[3] - 4;
 				Canvas_drawString(canvas, &canvas->scratch, bx - 7, by, 10);
 				Canvas_drawImageSimple(canvas, &g_app->menuSystem->imgCursor, bx + bob - 0x2e, by, 10);
 			} else if (canvas->drawLoading != k) {
@@ -895,7 +902,13 @@ void Canvas_drawErrorScreen(Canvas *canvas)
 	TextUtil_dehyphenate(g_app->textUtil, &title);
 	Graphics_setColor(canvas->graphics, (int)0xff000000);
 	Graphics_fillRect(canvas->graphics, 0, 0, canvas->screenRect[2], canvas->screenRect[3]);
-	Canvas_drawDialogFrame(canvas, 0, 0, canvas->viewRect[2], canvas->viewRect[3], 0);
+	{
+		int boxW = canvas->viewRect[2] > 176 ? 176 : canvas->viewRect[2];
+		int boxH = canvas->viewRect[3] > 200 ? 200 : canvas->viewRect[3];
+		int boxX = (canvas->viewRect[2] - boxW) / 2;
+		int boxY = (canvas->viewRect[3] - boxH) / 2;
+		Canvas_drawDialogFrame(canvas, boxX, boxY, boxW, boxH, 0);
+	}
 	Canvas_drawString(canvas, &title, canvas->screenCenterX - 0x40, canvas->screenCenterY - 0x40, 0);
 	Canvas_drawString(canvas, &canvas->scratch, canvas->screenCenterX - 0x40, canvas->screenCenterY - 0x28, 0);
 	String_dtor(&title, 0);

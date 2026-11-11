@@ -191,7 +191,10 @@ int ParticleSystem_startup(ParticleSystem *ps)
 		ParticleSystem_linkFree(ps, node);
 	}
 	ps->numActive = 0;
-	ps->scale = (app->render->width << 16) / 0x8000;
+	{
+		int refW = app->render->width > 176 ? 176 : app->render->width;
+		ps->scale = (refW << 16) / 0x8000;
+	}
 	ps->heightFactor = (app->render->height << 16) / 0x9400;
 	Image_load(app, app->render->greenBlood == 0 ? 0xd : 0xe, &ps->imgGibs, 1);
 	Image_load(app, 0x32, &ps->imgWoodGibs, 1);

@@ -364,6 +364,7 @@ void Render_drawFlatRow(Render *render, int x, int y, void *tex64, int width, in
 	int y2 = y * 2;
 	int x2 = x * 2;
 	int viewW = render->width;
+	int focalW = viewW > 176 ? 176 : viewW;
 	int sinA = render->viewPlane[3];
 	int cosA = render->viewPlane[4];
 	int dz, rows, dist, k, du, dv, center;
@@ -376,8 +377,8 @@ void Render_drawFlatRow(Render *render, int x, int y, void *tex64, int width, in
 		rows = render->height - y2;
 	}
 	/* distance to the row on the plane, then per-pixel world step */
-	dist = rmul(viewW, rshl(dz, 3)) / (rows + 1);
-	k = rshl(dist, 19) / rshl(viewW, 5);
+	dist = rmul(focalW, rshl(dz, 3)) / (rows + 1);
+	k = rshl(dist, 19) / rshl(focalW, 5);
 	dv = rmul(k >> 8, cosA >> 8);
 	du = rmul(sinA >> 8, k >> 8);
 	center = x2 - viewW + 1;
@@ -419,7 +420,8 @@ void Render_draw2DSprite(Render *render, int sprite, int frame, int x, int y, in
 	BrewView_sprite(render,sprite,frame,x,y,a,blend,scale,flip);
 #endif
 	int width = render->width;
-	int colStep = 0xb000 / width;                         /* 16.16 shape columns per pixel, *scale */
+	int refW = width > 176 ? 176 : width;
+	int colStep = 0xb000 / refW;                          /* 16.16 shape columns per pixel, *scale */
 	int vStep = rdiv64((int64_t)rshl(colStep, 8), scale);  /* 20.12 texels per pixel >> 4 */
 	int k = 0x10000 / colStep;                             /* pixels per column, 16.16 */
 	int idx = render->spriteRemap[sprite] + frame;
@@ -782,9 +784,15 @@ void Render_clearColumnDepth(Render *render)
 /* 0x0002cc64 Occluder pass: mark the columns covered by a projected solid wall. */
 void Render_occludeColumns(Render *render, Line *seg)
 {
-	int x;
+	int x, x0, x1;
 	if (seg->x2 - seg->x1 <= 0)
 		return;
-	for (x = (seg->x1 + 0xffff) >> 16; x < (seg->x2 + 0xffff) >> 16; x++)
+	x0 = (seg->x1 + 0xffff) >> 16;
+	x1 = (seg->x2 + 0xffff) >> 16;
+	if (x0 < 0)
+		x0 = 0;
+	if (x1 > render->width)
+		x1 = render->width;
+	for (x = x0; x < x1; x++)
 		render->columnDepth[x] = DEPTH_SOLID;
 }

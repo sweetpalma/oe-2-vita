@@ -39,7 +39,7 @@ static const char *resolve_data_dir(void)
 int main(int argc, char **argv)
 {
 	const char *data = resolve_data_dir();
-	int w = 176, h = 220;
+	int w = 352, h = 200;
 	Applet *app;
 	uint32_t nextTick;
 

@@ -497,7 +497,8 @@ void MenuSystem_loadNotebook(Menu *tmp)
 		String_dtor(&a, 0);
 	}
 
-	int top = ms->numItems - (cv->viewRect[3] - 0x1a) / 12;
+	int menuH = cv->viewRect[3] > 200 ? 200 : cv->viewRect[3];
+	int top = ms->numItems - (menuH - 0x1a) / 12;
 	ms->scrollIndex = top;
 	ms->selectedIndex = top;
 	if (top < 0) {

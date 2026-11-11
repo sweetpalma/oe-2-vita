@@ -63,10 +63,11 @@ int Render_clipSegmentNear(Render *render, Line *seg)
 {
 	int *v1 = &seg->x1, *v2 = &seg->x2;
 	int a, b;
+	int w = render->width > 176 ? render->width : 176;
 
 	/* left edge */
-	a = seg->x1 + seg->y1;
-	b = seg->x2 + seg->y2;
+	a = (w > 176 ? (int32_t)(((int64_t)seg->x1 * w) / 176) : seg->x1) + seg->y1;
+	b = (w > 176 ? (int32_t)(((int64_t)seg->x2 * w) / 176) : seg->x2) + seg->y2;
 	if (a < 0) {
 		if (b < 0)
 			return 0;
@@ -76,8 +77,8 @@ int Render_clipSegmentNear(Render *render, Line *seg)
 	}
 
 	/* right edge */
-	a = seg->x1 - seg->y1;
-	b = seg->x2 - seg->y2;
+	a = (w > 176 ? (int32_t)(((int64_t)seg->x1 * w) / 176) : seg->x1) - seg->y1;
+	b = (w > 176 ? (int32_t)(((int64_t)seg->x2 * w) / 176) : seg->x2) - seg->y2;
 	if (b < 0) {
 		if (a < 0)
 			return 0;
@@ -144,9 +145,16 @@ int Render_isSegmentVisible(Render *render, int *bbox)
 	Render_transformPoint(render, &seg->x1);
 	Render_transformPoint(render, &seg->x2);
 	if (Render_clipSegmentNear(render, seg)) {
+		int x0, x1;
 		Render_projectY(render, &seg->x1);
 		Render_projectY(render, &seg->x2);
-		for (x = (seg->x1 + 0xffff) >> 16; x < (seg->x2 + 0xffff) >> 16; x++)
+		x0 = (seg->x1 + 0xffff) >> 16;
+		x1 = (seg->x2 + 0xffff) >> 16;
+		if (x0 < 0)
+			x0 = 0;
+		if (x1 > render->width)
+			x1 = render->width;
+		for (x = x0; x < x1; x++)
 			if (render->columnDepth[x] == DEPTH_EMPTY)
 				return 0;
 	}

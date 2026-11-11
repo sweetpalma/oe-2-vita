@@ -212,7 +212,11 @@ static void usage(const char *argv0)
 int main(int argc, char **argv)
 {
 	const char *data = "gamedata";
+#ifdef OE2_STANDALONE_BRIDGE
+	int w = 352, h = 200, fast = 0;
+#else
 	int w = 176, h = 220, fast = 0;
+#endif
 	Applet *app;
 	uint32_t nextTick;
 

@@ -1364,6 +1364,7 @@ void Render_relinkSpriteAt(Render *r, Sprite *sprite, int x, int y)
 void Render_setScreenRect(Render *r, short *rect)
 {
 	int w = rect[2];
+	int focalW = w > 176 ? 176 : w;
 
 	r->width = w;
 	r->height = rect[3];
@@ -1374,8 +1375,8 @@ void Render_setScreenRect(Render *r, short *rect)
 	r->centerY = r->height / 2;
 	r->centerX = w / 2;
 	r->projX = rshl(w / 2, 16) - 0x8000;
-	r->projH = rshl(w, 16);
-	r->projW = rshl(w, 16) - 0x8000;
+	r->projH = rshl(focalW, 16);
+	r->projW = rshl(focalW, 16) - 0x8000;
 	free(r->columnDepth);
 	r->columnDepth = malloc((size_t)r->width * sizeof *r->columnDepth);
 }

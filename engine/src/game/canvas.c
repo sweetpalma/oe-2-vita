@@ -192,21 +192,34 @@ int Canvas_startup(Canvas *canvas)
 
 	/* characters per line (7 px font) for the various text boxes */
 	w = canvas->screenRect[2];
-	canvas->textWidths[2] = (w - 2) / 7;
-	canvas->textWidths[3] = (w - 9) / 7;
-	canvas->textWidths[1] = (w - 23) / 7;
-	canvas->textWidths[0] = canvas->textWidths[1];
-	canvas->textWidths[4] = canvas->textWidths[3];
+	{
+		int uiW = w > 176 ? 176 : w;
+		canvas->textWidths[2] = (uiW - 2) / 7;
+		canvas->textWidths[3] = (uiW - 9) / 7;
+		canvas->textWidths[1] = (uiW - 23) / 7;
+		canvas->textWidths[0] = canvas->textWidths[1];
+		canvas->textWidths[4] = canvas->textWidths[3];
+	}
 	vw = canvas->viewRect[2];
-	canvas->textWidths[7] = vw / 7;
-	canvas->textWidths[5] = (vw - 23) / 7;
-	canvas->textWidths[6] = (vw - 53) / 7;
+	{
+		int uiVW = vw > 176 ? 176 : vw;
+		canvas->textWidths[7] = vw / 7;
+		canvas->textWidths[5] = (uiVW - 23) / 7;
+		canvas->textWidths[6] = (uiVW - 53) / 7;
+	}
 	canvas->largeScreen = vw >= 0xb0;
 
 	/* 3D view: 20 px HUD bar above, 15 px below (35 total); keep a 20 px
 	 * status bar on tall screens and an even render height */
 	sh = canvas->screenRect[3];
 	renderH = (int16_t)(canvas->viewRect[3] - 35);
+#ifdef OE2_STANDALONE_BRIDGE
+	if (w > 176) {
+		canvas->hasStatusBar = 0;
+		canvas->usableHeight = (int16_t)sh;
+		renderH = (int16_t)((sh - 34) & ~1);
+	} else
+#endif
 	if (sh < 0x94) {
 		canvas->usableHeight = (int16_t)sh;
 	} else {
@@ -219,7 +232,12 @@ int Canvas_startup(Canvas *canvas)
 	if (renderH & 1)
 		renderH = (int16_t)(renderH - 1);
 	canvas->viewRect[0] = (int16_t)((w - vw) / 2);
-	canvas->viewRect[3] = (int16_t)(renderH + 35);
+#ifdef OE2_STANDALONE_BRIDGE
+	if (w > 176)
+		canvas->viewRect[3] = (int16_t)sh;
+	else
+#endif
+		canvas->viewRect[3] = (int16_t)(renderH + 35);
 	avail = canvas->hasStatusBar ? canvas->usableHeight : sh;
 	canvas->viewRect[1] = (int16_t)((avail - canvas->viewRect[3]) / 2);
 	canvas->screenCenterX = vw / 2;

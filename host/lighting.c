@@ -163,9 +163,9 @@ void BrewLight_floor(Render *r,int x,int y,int u,int v,int du,int dv,int count,i
 }
 void BrewLight_span(Render *r,int x,int y,int count,int projection,int sprite){
  if(r!=renderer||projection<=0||r->shade>=4||(sprite&&r->shade!=0)||(unsigned)x>=(unsigned)width)return;
- float invW=1.f/width;
+ float invFocalW=r->projH>0?65536.f/(float)r->projH:1.f/width;
  float t=(float)(sprite?r->projH:r->projW)/projection;
- float lateral=(2*x+1.f-width)*invW;
+ float lateral=(2*x+1.f-width)*invFocalW;
  float px=r->viewX+(fx+rx*lateral)*t,py=r->viewY+(fy+ry*lateral)*t;
  float nx=-fx,ny=-fy;
  if(!sprite&&r->curLineIdx>=0&&r->curLineIdx<r->numLines){
@@ -178,8 +178,8 @@ void BrewLight_span(Render *r,int x,int y,int count,int projection,int sprite){
  }
  signed char snx=(signed char)(nx*127),sny=(signed char)(ny*127);
  unsigned char kind=sprite?3:2;
- float dz=-2.f*t*invW;
- float z=r->viewZ+(height-2*y-1.f)*t*invW;
+ float dz=-2.f*t*invFocalW;
+ float z=r->viewZ+(height-2*y-1.f)*t*invFocalW;
  for(int i=0;i<count;i++,z+=dz){
   int yy=y+i;
   if((unsigned)yy<(unsigned)height){
@@ -753,9 +753,10 @@ static void glow(const Light *l,float flicker){
  float weight=worldLightWeight(l->x,l->y);if(weight<=0)return;
  float dx=l->x-renderer->viewX,dy=l->y-renderer->viewY,d=dx*fx+dy*fy;
  if(d<12||!BrewLight_visible(renderer,renderer->viewX,renderer->viewY,renderer->viewZ,l->x,l->y,l->z))return;
- float cx=width*.5f+(dx*rx+dy*ry)*width/(2*d),cy=height*.5f-(l->z-renderer->viewZ)*width/(2*d);
- float scale=width/176.f;
- float radius=clampf(width*5.5f/d,1.5f*scale,12*scale),colour[3]={l->r,l->g,l->b};
+ float focalW=renderer->projH>0?(float)(renderer->projH>>16):(float)width;
+ float cx=width*.5f+(dx*rx+dy*ry)*focalW/(2*d),cy=height*.5f-(l->z-renderer->viewZ)*focalW/(2*d);
+ float scale=focalW/176.f;
+ float radius=clampf(focalW*5.5f/d,1.5f*scale,12*scale),colour[3]={l->r,l->g,l->b};
  int x0=(int)fmaxf(0,cx-radius),x1=(int)fminf(width-1,cx+radius),y0=(int)fmaxf(0,cy-radius),y1=(int)fminf(height-1,cy+radius);
  for(int y=y0;y<=y1;y++)for(int x=x0;x<=x1;x++){
   float ax=(x-cx)/radius,ay=(y-cy)/radius,r2=ax*ax+ay*ay;if(r2>1)continue;
@@ -886,8 +887,8 @@ static int staffShift(void){
  int bottom=BrewLight_weaponBottom();return bottom>=0?height-1-bottom:0;
 }
 #ifndef OE2_QA_INTERACTIONS
-static float lowResEnergy[176*220][3];
-static unsigned char lowResReady[176*220];
+static float lowResEnergy[400*240][3];
+static unsigned char lowResReady[400*240];
 static int compatibleSurface(const Surface *a,const Surface *b,const Surface *c){
  if(b->kind!=1&&b->kind!=2)return 0;
  if(a->kind!=b->kind||c->kind!=b->kind)return 0;
@@ -931,7 +932,7 @@ static const uint32_t *present(const uint32_t *original,int w,int h,int lighting
 #endif
  traceActive=lighting;
 #ifndef OE2_QA_INTERACTIONS
- if(lighting&&w<=176&&h<=220){
+ if(lighting&&w<=400&&h<=240){
   const Surface *surfBase=surfaces;
   memset(lowResReady,0,(size_t)w*(size_t)h);
   for(int y=0;y<h;y+=2){
