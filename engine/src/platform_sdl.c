@@ -172,6 +172,10 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count)
 				OE2_cycleLightRange();
 				break;
 			}
+			if (e.type == SDL_KEYDOWN && !e.key.repeat && e.key.keysym.sym == SDLK_F4) {
+				OE2_toggleFastTick();
+				break;
+			}
 #endif
 			avk = map_key(e.key.keysym.sym);
 			if (avk) {

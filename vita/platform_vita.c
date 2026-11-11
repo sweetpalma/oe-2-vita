@@ -307,6 +307,12 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count)
 				OE2_toggleRemastered();
 			}
 		}
+		if ((changed & VBTN_START) && (cur & VBTN_START) && (pad.buttons & SCE_CTRL_RTRIGGER)) {
+			OE2_toggleFastTick();
+			prevButtons = cur;
+			*count = n;
+			return keepGoing;
+		}
 
 		static const uint32_t tracked[] = {
 			VBTN_UP, VBTN_DOWN, VBTN_LEFT, VBTN_RIGHT,

@@ -8,29 +8,52 @@
 #include <string.h>
 
 static int remasteredMode = 1;
-static int rangeSteps = 15; /* 5, 15, or 20 steps */
+static int rangeSteps = 5; /* 5 (Low default), 15 (Med), or 20 (High) steps */
+static int fastTickMode = 0;
 static uint32_t worldPixels[640 * 640];
 static uint32_t litPixels[640 * 640];
 static uint16_t lit565[640 * 640];
+static uint32_t lut565ToRgba[65536];
+static int lut565Ready;
 static int worldX, worldY, worldW, worldH, worldValid;
+static uint32_t lastFrameSig;
+static int lastViewX, lastViewY, lastViewZ, lastViewAngle, stationaryCount;
 static int cineCallsThisFrame;
 static int toastFrames;
 static const char *toastText = "";
 
-static uint32_t to_rgba(uint16_t c)
+static void ensure_lut565(void)
 {
-	return (((c >> 11) & 31) * 255 / 31) |
-	       ((((c >> 5) & 63) * 255 / 63) << 8) |
-	       (((c & 31) * 255 / 31) << 16) |
-	       0xff000000u;
+	if (lut565Ready)
+		return;
+	for (uint32_t c = 0; c < 65536u; c++) {
+		lut565ToRgba[c] = (((c >> 11) & 31u) * 255u / 31u) |
+		                  ((((c >> 5) & 63u) * 255u / 63u) << 8) |
+		                  (((c & 31u) * 255u / 31u) << 16) |
+		                  0xff000000u;
+	}
+	lut565Ready = 1;
 }
 
-static uint16_t to_rgb565(uint32_t rgba)
+static inline uint32_t to_rgba(uint16_t c)
 {
-	uint32_t r = ((rgba & 0xffu) * 31u + 127u) / 255u;
-	uint32_t g = (((rgba >> 8) & 0xffu) * 63u + 127u) / 255u;
-	uint32_t b = (((rgba >> 16) & 0xffu) * 31u + 127u) / 255u;
+	return lut565ToRgba[c];
+}
+
+static inline uint16_t to_rgb565(uint32_t rgba)
+{
+	uint32_t r = ((rgba & 0xffu) * 249u + 1014u) >> 11;
+	uint32_t g = (((rgba >> 8) & 0xffu) * 253u + 505u) >> 10;
+	uint32_t b = (((rgba >> 16) & 0xffu) * 249u + 1014u) >> 11;
 	return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
+static uint32_t hash_world_pixels(int count)
+{
+	uint32_t h = 2166136261u;
+	for (int i = 0; i < count; i += 4)
+		h = (h ^ worldPixels[i]) * 16777619u;
+	return h;
 }
 
 static void apply_world_lighting(int x, int y, int w, int h)
@@ -38,18 +61,43 @@ static void apply_world_lighting(int x, int y, int w, int h)
 	IBitmap *b = Brew_screen();
 	if (!b || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > b->width || y + h > b->height)
 		return;
+	ensure_lut565();
+	int count = w * h;
+	uint32_t sig = hash_world_pixels(count);
+	int vx = (g_app && g_app->render) ? g_app->render->viewX : 0;
+	int vy = (g_app && g_app->render) ? g_app->render->viewY : 0;
+	int vz = (g_app && g_app->render) ? g_app->render->viewZ : 0;
+	int va = (g_app && g_app->canvas) ? g_app->canvas->viewAngle : 0;
+	int samePose = worldValid && worldX == x && worldY == y && worldW == w && worldH == h &&
+	               sig == lastFrameSig && vx == lastViewX && vy == lastViewY &&
+	               vz == lastViewZ && va == lastViewAngle;
+	if (samePose && (stationaryCount++ & 1) == 0) {
+		for (int row = 0; row < h; row++)
+			memcpy(&b->px[(y + row) * b->pitch + x], &lit565[row * w], (size_t)w * sizeof(uint16_t));
+		return;
+	}
+	if (!samePose)
+		stationaryCount = 0;
+	lastFrameSig = sig;
+	lastViewX = vx;
+	lastViewY = vy;
+	lastViewZ = vz;
+	lastViewAngle = va;
+
 	BrewLight_setRange(rangeSteps);
 	const uint32_t *src = remasteredMode ? BrewLight_render(worldPixels, w, h)
 	                                     : BrewLight_classic(worldPixels, w, h);
 	if (!src)
 		src = worldPixels;
-	memcpy(litPixels, src, (size_t)w * (size_t)h * sizeof(uint32_t));
 	for (int row = 0; row < h; row++) {
+		uint16_t *dst565 = &b->px[(y + row) * b->pitch + x];
 		for (int col = 0; col < w; col++) {
 			int idx = row * w + col;
-			uint16_t c565 = to_rgb565(litPixels[idx]);
+			uint32_t rgba = src[idx];
+			uint16_t c565 = to_rgb565(rgba);
+			litPixels[idx] = rgba;
 			lit565[idx] = c565;
-			b->px[(y + row) * b->pitch + x + col] = c565;
+			dst565[col] = c565;
 		}
 	}
 	worldX = x;
@@ -94,9 +142,13 @@ void OE2_captureWorld(const int16_t *rect)
 	int x = rect[0], y = rect[1], w = rect[2], h = rect[3];
 	if (!b || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > b->width || y + h > b->height)
 		return;
-	for (int row = 0; row < h; row++)
+	ensure_lut565();
+	for (int row = 0; row < h; row++) {
+		const uint16_t *srcRow = &b->px[(y + row) * b->pitch + x];
+		uint32_t *dstRow = &worldPixels[row * w];
 		for (int col = 0; col < w; col++)
-			worldPixels[row * w + col] = to_rgba(b->px[(y + row) * b->pitch + x + col]);
+			dstRow[col] = lut565ToRgba[srcRow[col]];
+	}
 	apply_world_lighting(x, y, w, h);
 	if (g_app && g_app->canvas && g_app->canvas->state == 0x13) {
 		/* Draw the native padlock indicator over the lit 3D view. */
@@ -131,6 +183,7 @@ void OE2_captureRenderedWorld(Render *r)
 void OE2_setRemastered(int enabled)
 {
 	remasteredMode = enabled ? 1 : 0;
+	lastFrameSig = 0;
 }
 
 int OE2_isRemastered(void)
@@ -141,6 +194,7 @@ int OE2_isRemastered(void)
 int OE2_toggleRemastered(void)
 {
 	remasteredMode = !remasteredMode;
+	lastFrameSig = 0;
 	toastText = remasteredMode ? "REMASTERED" : "CLASSIC";
 	toastFrames = 30;
 	if (worldValid) {
@@ -179,6 +233,7 @@ void OE2_cycleLightRange(void)
 		rangeSteps = 5;
 		toastText = "LIGHT: LOW";
 	}
+	lastFrameSig = 0;
 	toastFrames = 30;
 	BrewLight_setRange(rangeSteps);
 }
@@ -186,6 +241,19 @@ void OE2_cycleLightRange(void)
 int OE2_getLightRangeSteps(void)
 {
 	return rangeSteps;
+}
+
+int OE2_toggleFastTick(void)
+{
+	fastTickMode = !fastTickMode;
+	toastText = fastTickMode ? "SPEED: FAST" : "SPEED: ORIG";
+	toastFrames = 30;
+	return fastTickMode;
+}
+
+int OE2_getTickMs(void)
+{
+	return fastTickMode ? 16 : 40;
 }
 
 /* Minimal 4x5 uppercase glyph table for the mode toggle toast. */
@@ -196,12 +264,14 @@ static uint32_t glyph_bits(char c)
 	case 'C': return 0x78887u;
 	case 'D': return 0xe999eu;
 	case 'E': return 0xf8e8fu;
+	case 'F': return 0xf8e88u;
 	case 'G': return 0x78b97u;
 	case 'H': return 0x99f99u;
 	case 'I': return 0xe444eu;
 	case 'L': return 0x8888fu;
 	case 'M': return 0x9ff99u;
 	case 'O': return 0x69996u;
+	case 'P': return 0xe9e88u;
 	case 'R': return 0xe9e99u;
 	case 'S': return 0x7861eu;
 	case 'T': return 0xf4444u;
@@ -247,11 +317,12 @@ static int is_3d_state(int st)
 void OE2_presentFrame(const uint16_t *fb, int pitchPixels, int scrW, int scrH, uint32_t *outRgba)
 {
 	cineCallsThisFrame = 0;
+	ensure_lut565();
 	for (int y = 0; y < scrH; y++) {
 		const uint16_t *row = fb + y * pitchPixels;
 		uint32_t *dst = outRgba + y * scrW;
 		for (int x = 0; x < scrW; x++)
-			dst[x] = to_rgba(row[x]);
+			dst[x] = lut565ToRgba[row[x]];
 	}
 	if (worldValid && g_app && g_app->canvas && is_3d_state(g_app->canvas->state)) {
 		if (worldX >= 0 && worldY >= 0 && worldX + worldW <= scrW && worldY + worldH <= scrH) {

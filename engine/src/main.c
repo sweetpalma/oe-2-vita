@@ -9,6 +9,9 @@
 #include <string.h>
 
 #include "game.h"
+#ifdef OE2_STANDALONE_BRIDGE
+#include "standalone_bridge.h"
+#endif
 
 #define TICK_MS 40
 #define FAST_TICK_MS 16 /* --fast: about one tick per 60 Hz frame (what vsync paced it at before) */
@@ -292,13 +295,21 @@ int main(int argc, char **argv)
 				Plat_setVirtualClock(1, 1000 + (uint32_t)tick * TICK_MS);
 			if (pipeMode && !pipe_tick(tick))
 				break;
+			uint32_t tickStart = Plat_uptimeMs();
 			for (int i = 0; i < nScriptKeys; i++)
 				if (scriptKeys[i].tick == tick)
 					Applet_HandleEvent(app, EVT_KEY, scriptKeys[i].key, 0);
 			Applet_Tick(app);
 			/* Applet_Tick re-armed the 40 ms timer at its end (ISHELL_SetTimer); the phone's deferred screen
 			 * update happened inside those 40 ms, so presenting must not delay the next tick. */
-			nextTick = Plat_uptimeMs() + (fast ? FAST_TICK_MS : TICK_MS);
+#ifdef OE2_STANDALONE_BRIDGE
+			uint32_t stepMs = fast ? FAST_TICK_MS : (uint32_t)OE2_getTickMs();
+#else
+			uint32_t stepMs = fast ? FAST_TICK_MS : TICK_MS;
+#endif
+			nextTick = tickStart + stepMs;
+			if ((int32_t)(Plat_uptimeMs() - nextTick) > 0)
+				nextTick = Plat_uptimeMs();
 			for (int i = 0; i < nShotTicks; i++)
 				if (shotTicks[i] == tick)
 					write_shot(tick);

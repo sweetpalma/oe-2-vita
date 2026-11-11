@@ -141,27 +141,34 @@ def build_vita_elf():
         if not tool.is_file():
             raise RuntimeError(f"Required VitaSDK tool not found: {tool}")
 
-    sources = [
+    game_sources = [
         ROOT / "engine/src/bar.c",
         ROOT / "engine/src/moddata.c",
         *sorted((ROOT / "engine/src/game").glob("*.c")),
-        ROOT / "host/lighting.c",
-        ROOT / "host/presentation.c",
-        ROOT / "vita/standalone_bridge.c",
         ROOT / "vita/pmd_vita.c",
         ROOT / "vita/platform_vita.c",
         ROOT / "vita/main_vita.c",
+    ]
+    fast_math_sources = [
+        ROOT / "host/lighting.c",
+        ROOT / "host/presentation.c",
+        ROOT / "vita/standalone_bridge.c",
     ]
 
     elf_path = BUILD / "oe2.elf"
     velf_path = BUILD / "oe2.velf"
     eboot_path = STAGE / "eboot.bin"
     sfo_path = STAGE / "sce_sys/param.sfo"
+    obj_dir = BUILD / "obj"
+    obj_dir.mkdir(parents=True, exist_ok=True)
 
-    cflags = [
-        "-Wl,-q",
+    base_cflags = [
         "-std=gnu17",
         "-O3",
+        "-mcpu=cortex-a9",
+        "-mfpu=neon",
+        "-mfloat-abi=hard",
+        "-ftree-vectorize",
         "-fwrapv",
         "-funsigned-char",
         "-DOE2_WEB_BRIDGE",
@@ -171,6 +178,19 @@ def build_vita_elf():
         "-I" + str(ROOT / "vita"),
         "-I" + str(VITASDK / "arm-vita-eabi/include/SDL2"),
     ]
+    objects = []
+    for src in game_sources:
+        obj = obj_dir / (src.stem + ".o")
+        subprocess.run([str(gcc), *base_cflags, "-c", str(src), "-o", str(obj)], check=True)
+        objects.append(obj)
+    for src in fast_math_sources:
+        obj = obj_dir / (src.stem + ".o")
+        subprocess.run(
+            [str(gcc), *base_cflags, "-ffast-math", "-funroll-loops", "-c", str(src), "-o", str(obj)],
+            check=True,
+        )
+        objects.append(obj)
+
     libs = [
         "-lSDL2",
         "-lz",
@@ -191,7 +211,7 @@ def build_vita_elf():
         "-lSceProcessmgr_stub",
     ]
 
-    subprocess.run([str(gcc), *cflags, *map(str, sources), *libs, "-o", str(elf_path)], check=True)
+    subprocess.run([str(gcc), "-Wl,-q", *map(str, objects), *libs, "-o", str(elf_path)], check=True)
     subprocess.run([str(elf_create), str(elf_path), str(velf_path)], check=True)
     subprocess.run([str(make_fself), "-s", str(velf_path), str(eboot_path)], check=True)
     subprocess.run(

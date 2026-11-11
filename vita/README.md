@@ -18,7 +18,7 @@ Native PlayStation Vita port of **Orcs & Elves II** (BREW 7.0.41 C reconstructio
 | **Circle (`O`)** | Pass Turn (`L + Circle`: Previous Weapon) | Back / Cancel / Delete Digit |
 | **Triangle (`/\\`)** | Next Weapon (`L + Triangle`: Prev Weapon, `R + Triangle`: Quick Potion/Item) | Skip Cinematic / Right Softkey |
 | **Square (`[]`)** | Toggle Automap (`L + Square`: Quick Weapon List) | Back / Cancel |
-| **Start** | Open Main / Pause Menu | Left Softkey / Back |
+| **Start** | Open Main / Pause Menu (`R + Start`: Toggle Fast 60 Hz / Original 25 Hz Tick Speed) | Left Softkey / Back |
 | **Select** | **Toggle Remastered / Classic Graphics** (`L + Select`: Cycle Light Range Low/Med/High, `R + Select`: Toggle Integer Scaling) | **Toggle Remastered / Classic Graphics** |
 
 ## Building from Source

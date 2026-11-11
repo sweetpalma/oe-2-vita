@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "game.h"
+#include "standalone_bridge.h"
 
 #ifdef __vita__
 #include <psp2/kernel/processmgr.h>
@@ -103,9 +104,13 @@ int main(int argc, char **argv)
 		}
 		if (Brew_quitRequested())
 			break;
-		if ((int32_t)(Plat_uptimeMs() - nextTick) >= 0) {
+		uint32_t now = Plat_uptimeMs();
+		if ((int32_t)(now - nextTick) >= 0) {
+			uint32_t step = (uint32_t)OE2_getTickMs();
+			nextTick += step;
+			if ((int32_t)(now - nextTick) >= 0)
+				nextTick = now + step;
 			Applet_Tick(app);
-			nextTick = Plat_uptimeMs() + TICK_MS;
 		} else {
 			Plat_delay(1);
 		}

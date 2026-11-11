@@ -45,8 +45,12 @@ static uint16_t visibility[GRID_CELLS];
 static uint16_t wallVisibility[GRID_CELLS];
 /* Static walls do not change when a billboard animation advances. Retain the
  * three exact ray results separately from the complete shadow-count cache. */
-static uint32_t wallSamples[GRID_CELLS],wallLightHash[8];
+static uint32_t wallSamples[GRID_CELLS],wallLightHash[8],lightCacheHash[8];
 static uint8_t wallSampleReady[8][(GRID_CELLS+7)/8];
+#define MAX_DIRTY_CELLS 32768
+#define MAX_DIRTY_WALL_BYTES 8192
+static int dirtyCheckedCells[MAX_DIRTY_CELLS],numDirtyChecked;
+static int dirtyWallBytes[8][MAX_DIRTY_WALL_BYTES],numDirtyWall[8];
 static uint32_t floatBits(float value){uint32_t bits;memcpy(&bits,&value,sizeof(bits));return bits;}
 static Caster casters[800],posedCasters[800],nativePoses[800];
 static int casterTag=-1,lightCasters[8][800],casterCount[8];
@@ -77,22 +81,38 @@ void BrewLight_setRange(int steps){processingSteps=steps<5?5:steps>20?20:steps;}
 static float fx,fy,rx,ry;
 static float clampf(float x,float a,float b){return x<a?a:x>b?b:x;}
 static uint32_t hashWord(uint32_t h,uint32_t n){return (h^n)*16777619u;}
+static const Source *sourceByTile[256];
+static unsigned char casterEligibleTile[256];
+static int tablesReady;
+static void initSourceTables(void){
+ if(tablesReady)return;
+ for(unsigned i=0;i<sizeof(sources)/sizeof(sources[0]);i++){
+  int t=sources[i].tile;
+  if(t>=0&&t<256)sourceByTile[t]=&sources[i];
+ }
+ for(int tile=17;tile<210;tile++){
+  if(tile==137||tile==139||tile==161||tile==192||tile==193||tile==198||tile==206||tile==208)continue;
+  if(sourceByTile[tile]&&tile!=116)continue;
+  casterEligibleTile[tile]=1;
+ }
+ tablesReady=1;
+}
 static const Source *sourceForSprite(const Sprite *s){
  if(s->info&(0x10000u|0x40000u))return NULL;
+ initSourceTables();
  int tile=s->info&255;
  /* Their fifth native frame contains an extinguished wick/empty lamp.
   * Script opcode 0x62 fixes that frame with the high bit; normal flames loop 0..3. */
  if((tile==150||tile==181)&&(s->info&0x80000000u)&&((s->info>>8)&15)>=4)return NULL;
  /* Native tile 116 draws its flaming meat only while this entity bit is set. */
  if(tile==116&&(!s->ent||!(s->ent->info&0x4000000u)))return NULL;
- for(unsigned i=0;i<sizeof(sources)/sizeof(sources[0]);i++)if(tile==sources[i].tile)return &sources[i];
- return NULL;
+ return sourceByTile[tile];
 }
 int BrewLight_spriteEmits(const Sprite *s){return sourceForSprite(s)!=NULL;}
 void BrewLight_impact(const GameSprite *missile,int flaming){
  if(!missile||!missile->sprite||!g_app)return;
- const Source *p=sourceForSprite(missile->sprite);
- if(flaming){for(unsigned i=0;i<sizeof(sources)/sizeof(sources[0]);i++)if(sources[i].tile==224){p=&sources[i];break;}}
+ initSourceTables();
+ const Source *p=flaming?sourceByTile[224]:sourceForSprite(missile->sprite);
  if(!p)return; /* Physical arrows, blood, melee and debris do not emit. */
  unsigned slot=nextImpact++%8;
  float dx=missile->dest[0]-missile->start[0],dy=missile->dest[1]-missile->start[1],d=sqrtf(dx*dx+dy*dy);
@@ -107,41 +127,65 @@ static void put(int x,int y,float px,float py,float pz,float nx,float ny,float n
  Surface *s=&surfaces[y*width+x];s->x=px;s->y=py;s->z=pz;
  s->nx=(signed char)(nx*127);s->ny=(signed char)(ny*127);s->nz=(signed char)(nz*127);s->kind=(unsigned char)kind;
 }
+static int cachedSpanLineIdx=-1;
+static float cachedSpanNx,cachedSpanNy;
 void BrewLight_begin(Render *r){
+ initSourceTables();
  renderer=r;width=r->width;height=r->height;
  if(width<1||height<1||width>704||height>880){width=height=0;return;}
  memset(surfaces,0,(size_t)width*height*sizeof(Surface));
- if(r==g_app->render){memset(nativePoses,0,sizeof(nativePoses));memset(posedCasters,0,sizeof(posedCasters));}
- else memcpy(posedCasters,nativePoses,sizeof(posedCasters));
- casterTag=-1;weaponCopied=0;fadeLevel=255;memset(floorDirections,0,sizeof(floorDirections));
+ int nSprites=r->numSprites<0?0:(r->numSprites>800?800:r->numSprites);
+ if(r==g_app->render){memset(nativePoses,0,(size_t)nSprites*sizeof(nativePoses[0]));memset(posedCasters,0,(size_t)nSprites*sizeof(posedCasters[0]));}
+ else memcpy(posedCasters,nativePoses,(size_t)nSprites*sizeof(posedCasters[0]));
+ casterTag=-1;cachedSpanLineIdx=-1;weaponCopied=0;fadeLevel=255;memset(floorDirections,0,(size_t)height*sizeof(floorDirections[0]));
  fx=r->viewCos/65536.f;fy=-r->viewSin/65536.f;rx=-fy;ry=fx;
 }
 int BrewLight_nativeTarget(void){return g_app&&renderer==g_app->render;}
 void BrewLight_fade(int level){fadeLevel=level<fadeLevel?level:fadeLevel;}
 void BrewLight_floor(Render *r,int x,int y,int u,int v,int du,int dv,int count,int ceiling){
- if(r!=renderer)return;
- if(y>=0&&y<880){
+ if(r!=renderer||y<0||y>=height)return;
+ if(y<880){
   int axis=abs(du)>=abs(dv);int dominant=axis?du:dv;
   floorDirections[y]=(FloorDirection){u/65536.f,v/65536.f,dominant?(axis?(float)dv/du:(float)du/dv):0,fmaxf(fabsf((float)du),fabsf((float)dv))/65536.f,axis,dominant!=0};
  }
+ float pz=(float)(ceiling?r->effCeil:r->effFloor);
+ signed char snz=ceiling?-127:127;
  uint32_t uu=(uint32_t)u,vv=(uint32_t)v;
- for(int i=0;i<count;i++,uu+=(uint32_t)du,vv+=(uint32_t)dv)
-  put(x+i,y,(int32_t)uu/65536.f,(int32_t)vv/65536.f,(float)(ceiling?r->effCeil:r->effFloor),0,0,ceiling?-1:1,1);
+ Surface *row=&surfaces[y*width];
+ for(int i=0;i<count;i++,uu+=(uint32_t)du,vv+=(uint32_t)dv){
+  int xx=x+i;
+  if((unsigned)xx<(unsigned)width){
+   Surface *s=&row[xx];
+   s->x=(int32_t)uu*(1.f/65536.f);s->y=(int32_t)vv*(1.f/65536.f);s->z=pz;
+   s->nx=0;s->ny=0;s->nz=snz;s->kind=1;
+  }
+ }
 }
 void BrewLight_span(Render *r,int x,int y,int count,int projection,int sprite){
- if(r!=renderer||projection<=0||r->shade>=4||(sprite&&r->shade!=0))return;
+ if(r!=renderer||projection<=0||r->shade>=4||(sprite&&r->shade!=0)||(unsigned)x>=(unsigned)width)return;
+ float invW=1.f/width;
  float t=(float)(sprite?r->projH:r->projW)/projection;
- float lateral=(2*x+1.f-width)/width;
+ float lateral=(2*x+1.f-width)*invW;
  float px=r->viewX+(fx+rx*lateral)*t,py=r->viewY+(fy+ry*lateral)*t;
  float nx=-fx,ny=-fy;
  if(!sprite&&r->curLineIdx>=0&&r->curLineIdx<r->numLines){
-  Line *l=&r->lines[r->curLineIdx];nx=(float)(l->y2-l->y1);ny=(float)(l->x1-l->x2);
-  float n=sqrtf(nx*nx+ny*ny);if(n>0){nx/=n;ny/=n;}
+  if(r->curLineIdx!=cachedSpanLineIdx){
+   Line *l=&r->lines[r->curLineIdx];nx=(float)(l->y2-l->y1);ny=(float)(l->x1-l->x2);
+   float n=sqrtf(nx*nx+ny*ny);if(n>0){nx/=n;ny/=n;}
+   cachedSpanLineIdx=r->curLineIdx;cachedSpanNx=nx;cachedSpanNy=ny;
+  }else{nx=cachedSpanNx;ny=cachedSpanNy;}
   if(nx*(r->viewX-px)+ny*(r->viewY-py)<0){nx=-nx;ny=-ny;}
  }
- for(int i=0;i<count;i++){
-  float z=r->viewZ+(height-2*(y+i)-1.f)*t/width;
-  put(x,y+i,px,py,z,nx,ny,0,sprite?3:2);
+ signed char snx=(signed char)(nx*127),sny=(signed char)(ny*127);
+ unsigned char kind=sprite?3:2;
+ float dz=-2.f*t*invW;
+ float z=r->viewZ+(height-2*y-1.f)*t*invW;
+ for(int i=0;i<count;i++,z+=dz){
+  int yy=y+i;
+  if((unsigned)yy<(unsigned)height){
+   Surface *s=&surfaces[yy*width+x];
+   s->x=px;s->y=py;s->z=z;s->nx=snx;s->ny=sny;s->nz=0;s->kind=kind;
+  }
  }
 }
 void BrewLight_weapon(Render *r,int x,int y,int count,int blend){
@@ -174,10 +218,10 @@ void BrewLight_poseCaster(Render *r,int x,int y,int z,int tile,int frame,int fla
  if(r==g_app->render)nativePoses[casterTag]=posedCasters[casterTag];
 }
 static int casterEligible(const Sprite *s){
+ initSourceTables();
  int tile=s->info&255;
- if((s->info&(0x10000u|0x40000u))||s->renderMode==4||tile<17||tile>=210||tile==137||tile==139||tile==161||tile==192||tile==193||tile==198||tile==206||tile==208)return 0;
- for(unsigned k=0;k<sizeof(sources)/sizeof(sources[0]);k++)if(tile==sources[k].tile&&tile!=116)return 0;
- return 1;
+ if((s->info&(0x10000u|0x40000u))||s->renderMode==4)return 0;
+ return casterEligibleTile[tile]!=0;
 }
 static Caster spriteCaster(const Render *r,const Sprite *s){
  int tile=s->info&255;
@@ -422,6 +466,10 @@ int BrewLight_qaSourcePoint(int index,int field){
  return -1;
 }
 #endif
+typedef struct {int valid,u,v,iz,sprites;float c00,c10,c01,c11;} FloorShadowCache;
+static FloorShadowCache floorShadowCache[8];
+typedef struct {int valid,ix,iy,axis,layer;float d00,d10,d01,d11;} RoomDistCache;
+static RoomDistCache roomDistCache;
 static void gather(Render *r){
 #ifdef OE2_QA_INTERACTIONS
  profile[5]=profile[6]=0;
@@ -451,14 +499,10 @@ static void gather(Render *r){
  for(int i=0;i<r->numMapSprites;i++)spriteWallCandle(r,&r->sprites[i],300000+i*256);
  }
  /* Original molten-crack flat 199 is emissive only where that material occurs. */
- for(int i=0;i<1024;i++){
-  if(!r->floorTiles[i])continue;
-  uintptr_t address=(uintptr_t)r->floorTiles[i],base=(uintptr_t)r->flats;
-  if(address<base||address>=base+sizeof(r->flats))continue;
-  ptrdiff_t slot=(ptrdiff_t)((address-base)/(4096*sizeof(uint16_t)));
-  if(slot>=0&&slot<r->numFlats&&r->flatIds[slot]==199){
-   Light l={(i%32)*64.f+32,(i/32)*64.f+32,r->effFloor+4.f,1,.25f,.04f,160,1.0f,1,1000+i};candidate(l,processingX,processingY);
-  }
+ const uint16_t *lavaFlat=NULL;
+ for(int slot=0;slot<r->numFlats;slot++)if(r->flatIds[slot]==199){lavaFlat=(const uint16_t *)((uintptr_t)r->flats+(size_t)slot*4096*sizeof(uint16_t));break;}
+ if(lavaFlat)for(int i=0;i<1024;i++)if(r->floorTiles[i]==lavaFlat){
+  Light l={(i%32)*64.f+32,(i/32)*64.f+32,r->effFloor+4.f,1,.25f,.04f,160,1.0f,1,1000+i};candidate(l,processingX,processingY);
  }
  for(int i=0;i<numLights;i++)for(int j=i+1;j<numLights;j++)if(lights[j].key<lights[i].key){Light a=lights[i];lights[i]=lights[j];lights[j]=a;}
  retainedCount=numLights;for(int i=0;i<retainedCount;i++)retainedKeys[i]=lights[i].key;
@@ -476,27 +520,60 @@ static void gather(Render *r){
  }
  h=hashWord(h,(uint32_t)r->effFloor);h=hashWord(h,(uint32_t)r->effCeil);
  h=hashWord(h,(uint32_t)r->floorHeight);h=hashWord(h,(uint32_t)r->ceilHeight);
- if(h!=geometryHash){geometryHash=h;memset(wallChecked,0,sizeof(wallChecked));buildTraceGrid(r);}
+ if(h!=geometryHash){geometryHash=h;roomDistCache.valid=0;memset(wallChecked,0,sizeof(wallChecked));buildTraceGrid(r);}
  for(int j=0;j<numLights;j++){
+#ifndef OE2_QA_INTERACTIONS
+  if(lights[j].key==2000){casterCount[j]=0;continue;}
+#endif
   uint32_t wallHash=hashWord(geometryHash,(uint32_t)lights[j].key);
   wallHash=hashWord(wallHash,floatBits(lights[j].x));wallHash=hashWord(wallHash,floatBits(lights[j].y));wallHash=hashWord(wallHash,floatBits(lights[j].z));
-  if(wallHash!=wallLightHash[j]){wallLightHash[j]=wallHash;memset(wallSampleReady[j],0,sizeof(wallSampleReady[j]));}
+  if(wallHash!=wallLightHash[j]){
+   wallLightHash[j]=wallHash;
+   if(numDirtyWall[j]<=MAX_DIRTY_WALL_BYTES){for(int k=0;k<numDirtyWall[j];k++)wallSampleReady[j][dirtyWallBytes[j][k]]=0;}
+   else memset(wallSampleReady[j],0,sizeof(wallSampleReady[j]));
+   numDirtyWall[j]=0;
+  }
  }
+ static int activeCasterList[800];
+ int numActiveCasters=0;
  for(int i=0;i<r->numSprites&&i<800;i++){
   casters[i]=spriteCaster(r,&r->sprites[i]);
   if(casters[i].active&&posedCasters[i].active)casters[i]=posedCasters[i];
+  if(casters[i].active)activeCasterList[numActiveCasters++]=i;
  }
+ unsigned invalidMask=0;
  for(int j=0;j<numLights;j++){
   casterCount[j]=0;
-  for(int i=0;i<r->numSprites&&i<800;i++){
+#ifndef OE2_QA_INTERACTIONS
+  if(lights[j].key==2000)continue;
+#endif
+  uint32_t lh=wallLightHash[j];
+  lh=hashWord(lh,(uint32_t)(int)(lights[j].x/16));lh=hashWord(lh,(uint32_t)(int)(lights[j].y/16));lh=hashWord(lh,(uint32_t)(int)(lights[j].z/8));
+  for(int k=0;k<numActiveCasters;k++){
+   int i=activeCasterList[k];
    Caster *c=&casters[i];float dx=c->x-lights[j].x,dy=c->y-lights[j].y,range=lights[j].radius+c->size;
-   if(!c->active||dx*dx+dy*dy>range*range)continue;
+   if(dx*dx+dy*dy>range*range)continue;
    lightCasters[j][casterCount[j]++]=i;
+   lh=hashWord(lh,(unsigned)i);lh=hashWord(lh,(unsigned)(int)c->x);lh=hashWord(lh,(unsigned)(int)c->y);lh=hashWord(lh,(unsigned)(int)c->z);lh=hashWord(lh,(unsigned)c->frame);lh=hashWord(lh,(unsigned)(int)(c->size*16));lh=hashWord(lh,c->flags);
    h=hashWord(h,(unsigned)i);h=hashWord(h,(unsigned)(int)c->x);h=hashWord(h,(unsigned)(int)c->y);h=hashWord(h,(unsigned)(int)c->z);h=hashWord(h,(unsigned)c->frame);h=hashWord(h,(unsigned)(int)(c->size*16));h=hashWord(h,c->flags);
   }
+  if(lh!=lightCacheHash[j]){lightCacheHash[j]=lh;invalidMask|=1u<<j;}
  }
+ for(int j=numLights;j<8;j++)if(lightCacheHash[j]){lightCacheHash[j]=0;invalidMask|=1u<<j;}
  for(int i=0;i<numLights;i++){h=hashWord(h,(uint32_t)lights[i].key);h=hashWord(h,(uint32_t)(int)(lights[i].x/16));h=hashWord(h,(uint32_t)(int)(lights[i].y/16));h=hashWord(h,(uint32_t)(int)(lights[i].z/8));}
- if(h!=cachedHash){cachedHash=h;memset(checked,0,sizeof(checked));}
+ cachedHash=h;
+ if(invalidMask){
+  if(numDirtyChecked<=MAX_DIRTY_CELLS){
+   int kept=0;unsigned char keepMask=(unsigned char)~invalidMask;
+   for(int k=0;k<numDirtyChecked;k++){
+    int cell=dirtyCheckedCells[k];unsigned char rem=checked[cell]&keepMask;
+    checked[cell]=rem;if(rem)dirtyCheckedCells[kept++]=cell;
+   }
+   numDirtyChecked=kept;
+  }else{
+   memset(checked,0,sizeof(checked));numDirtyChecked=0;memset(lightCacheHash,0,sizeof(lightCacheHash));
+  }
+ }
 }
 static float visibilityAt(int ix,int iy,int iz,int light,int sprites){
  const Light *l=&lights[light];
@@ -505,15 +582,41 @@ static float visibilityAt(int ix,int iy,int iz,int light,int sprites){
  if(!(checked[cell]&bit)){
   float x=ix*16+8.f,y=iy*16+8.f,z=iz*8+4.f;int hits=0,wallHits=0;
   unsigned shift=light*3,mask=(wallSamples[cell]>>shift)&7u,readyBit=1u<<(cell&7);
-  if(!(wallSampleReady[light][cell>>3]&readyBit)){
+  int byteIdx=cell>>3;
+#ifdef OE2_QA_INTERACTIONS
+  if(!(wallSampleReady[light][byteIdx]&readyBit)){
    mask=0;
    for(int sample=-1;sample<=1;sample++)if(BrewLight_visible(renderer,x,y,z,l->x+sample*3,l->y-sample*2,l->z))mask|=1u<<(sample+1);
-   wallSamples[cell]=(wallSamples[cell]&~(7u<<shift))|(mask<<shift);wallSampleReady[light][cell>>3]|=(uint8_t)readyBit;
+   wallSamples[cell]=(wallSamples[cell]&~(7u<<shift))|(mask<<shift);
+   if(!wallSampleReady[light][byteIdx]){
+    if(numDirtyWall[light]<MAX_DIRTY_WALL_BYTES)dirtyWallBytes[light][numDirtyWall[light]++]=byteIdx;
+    else numDirtyWall[light]=MAX_DIRTY_WALL_BYTES+1;
+   }
+   wallSampleReady[light][byteIdx]|=(uint8_t)readyBit;
   }
   for(int sample=-1;sample<=1;sample++){
    float bx=l->x+sample*3,by=l->y-sample*2;int visible=(mask>>(sample+1))&1;wallHits+=visible;
    if(visible)for(int i=0;i<casterCount[light];i++)if(casterBlocks(renderer,&casters[lightCasters[light][i]],x,y,z,bx,by,l->z)){visible=0;break;}
    hits+=visible;
+  }
+#else
+  if(!(wallSampleReady[light][byteIdx]&readyBit)){
+   mask=BrewLight_visible(renderer,x,y,z,l->x,l->y,l->z)?7u:0u;
+   wallSamples[cell]=(wallSamples[cell]&~(7u<<shift))|(mask<<shift);
+   if(!wallSampleReady[light][byteIdx]){
+    if(numDirtyWall[light]<MAX_DIRTY_WALL_BYTES)dirtyWallBytes[light][numDirtyWall[light]++]=byteIdx;
+    else numDirtyWall[light]=MAX_DIRTY_WALL_BYTES+1;
+   }
+   wallSampleReady[light][byteIdx]|=(uint8_t)readyBit;
+  }
+  int visible=(mask>>1)&1;
+  wallHits=visible?3:0;
+  if(visible)for(int i=0;i<casterCount[light];i++)if(casterBlocks(renderer,&casters[lightCasters[light][i]],x,y,z,l->x,l->y,l->z)){visible=0;break;}
+  hits=visible?3:0;
+#endif
+  if(!checked[cell]){
+   if(numDirtyChecked<MAX_DIRTY_CELLS)dirtyCheckedCells[numDirtyChecked++]=cell;
+   else numDirtyChecked=MAX_DIRTY_CELLS+1;
   }
   visibility[cell]=(uint16_t)((visibility[cell]&~(3u<<(light*2)))|((unsigned)hits<<(light*2)));checked[cell]|=(unsigned char)bit;
   wallVisibility[cell]=(uint16_t)((wallVisibility[cell]&~(3u<<(light*2)))|((unsigned)wallHits<<(light*2)));
@@ -531,8 +634,14 @@ static float shadow(const Surface *s,int light,int column){
  int ix=(int)floorf(x),iy=(int)floorf(y),iz=(int)floorf(z);
  /* Interpolate along the receiver, never through its own wall plane. */
  float a,b;int u,v;
- if(s->nz){a=x-.5f;b=y-.5f;u=(int)floorf(a);v=(int)floorf(b);
-  return mixf(mixf(visibilityAt(u,v,iz,light,s->kind!=3),visibilityAt(u+1,v,iz,light,s->kind!=3),a-u),mixf(visibilityAt(u,v+1,iz,light,s->kind!=3),visibilityAt(u+1,v+1,iz,light,s->kind!=3),a-u),b-v);
+ if(s->nz){a=x-.5f;b=y-.5f;u=(int)floorf(a);v=(int)floorf(b);int sprites=s->kind!=3;
+  FloorShadowCache *fc=&floorShadowCache[light];
+  if(!fc->valid||fc->u!=u||fc->v!=v||fc->iz!=iz||fc->sprites!=sprites){
+   fc->valid=1;fc->u=u;fc->v=v;fc->iz=iz;fc->sprites=sprites;
+   fc->c00=visibilityAt(u,v,iz,light,sprites);fc->c10=visibilityAt(u+1,v,iz,light,sprites);
+   fc->c01=visibilityAt(u,v+1,iz,light,sprites);fc->c11=visibilityAt(u+1,v+1,iz,light,sprites);
+  }
+  return mixf(mixf(fc->c00,fc->c10,a-u),mixf(fc->c01,fc->c11,a-u),b-v);
  }
  int axis=abs(s->nx)>=abs(s->ny),fixed=axis?ix:iy;
  a=(axis?y:x)-.5f;b=z-.5f;u=(int)floorf(a);v=(int)floorf(b);float weight=a-u;
@@ -549,19 +658,37 @@ static float wallDistanceAt(int x,int y,int axis,int layer){
  int cell=y*129+x;
  if(!wallChecked[layer][cell]){
   float px=x*16.f,py=y*16.f,best[2]={40*40,40*40};
-  for(int i=0;i<renderer->numLines;i++){
-   const Line *l=&renderer->lines[i];if(l->flags&(HIDDEN|NO_DEPTH))continue;
-   /* Upper wall pieces do not touch the floor beneath them. */
-   if(layer<2){
-    float z=layer==0?renderer->effFloor:renderer->effCeil,bottom=renderer->effFloor,top=64;
-    if(l->flags&0xc0010000u){top=renderer->ceilHeight;bottom=(l->flags&0x10000u)?renderer->floorHeight:64;}
-    if(z<bottom-.5f||z>top+.5f)continue;
+  int gx0=(int)floorf((px-40.5f-TRACE_ORIGIN)/64),gx1=(int)floorf((px+40.5f-TRACE_ORIGIN)/64);
+  int gy0=(int)floorf((py-40.5f-TRACE_ORIGIN)/64),gy1=(int)floorf((py+40.5f-TRACE_ORIGIN)/64);
+  if(traceReady&&gx0>=0&&gy0>=0&&gx1<TRACE_SIDE&&gy1<TRACE_SIDE){
+   for(int gy=gy0;gy<=gy1;gy++)for(int gx=gx0;gx<=gx1;gx++)for(int ref=traceHead[gy*TRACE_SIDE+gx];ref>=0;ref=traceNext[ref]){
+    const Line *l=&renderer->lines[traceLine[ref]];
+    if(layer<2){
+     float z=layer==0?renderer->effFloor:renderer->effCeil,bottom=renderer->effFloor,top=64;
+     if(l->flags&0xc0010000u){top=renderer->ceilHeight;bottom=(l->flags&0x10000u)?renderer->floorHeight:64;}
+     if(z<bottom-.5f||z>top+.5f)continue;
+    }
+    float dx=l->x2-l->x1,dy=l->y2-l->y1,den=dx*dx+dy*dy;
+    if(den<1)continue;
+    float t=clampf(((px-l->x1)*dx+(py-l->y1)*dy)/den,0,1);
+    float qx=px-l->x1-dx*t,qy=py-l->y1-dy*t,d=qx*qx+qy*qy;
+    int normal=fabsf(dx)>fabsf(dy)?1:0;if(d<best[normal])best[normal]=d;
    }
-   float dx=l->x2-l->x1,dy=l->y2-l->y1,den=dx*dx+dy*dy;
-   if(den<1)continue;
-   float t=clampf(((px-l->x1)*dx+(py-l->y1)*dy)/den,0,1);
-   float qx=px-l->x1-dx*t,qy=py-l->y1-dy*t,d=qx*qx+qy*qy;
-   int normal=fabsf(dx)>fabsf(dy)?1:0;if(d<best[normal])best[normal]=d;
+  }else{
+   for(int i=0;i<renderer->numLines;i++){
+    const Line *l=&renderer->lines[i];if(l->flags&(HIDDEN|NO_DEPTH))continue;
+    /* Upper wall pieces do not touch the floor beneath them. */
+    if(layer<2){
+     float z=layer==0?renderer->effFloor:renderer->effCeil,bottom=renderer->effFloor,top=64;
+     if(l->flags&0xc0010000u){top=renderer->ceilHeight;bottom=(l->flags&0x10000u)?renderer->floorHeight:64;}
+     if(z<bottom-.5f||z>top+.5f)continue;
+    }
+    float dx=l->x2-l->x1,dy=l->y2-l->y1,den=dx*dx+dy*dy;
+    if(den<1)continue;
+    float t=clampf(((px-l->x1)*dx+(py-l->y1)*dy)/den,0,1);
+    float qx=px-l->x1-dx*t,qy=py-l->y1-dy*t,d=qx*qx+qy*qy;
+    int normal=fabsf(dx)>fabsf(dy)?1:0;if(d<best[normal])best[normal]=d;
+   }
   }
   wallAxisDistance[layer][0][cell]=sqrtf(best[0]);wallAxisDistance[layer][1][cell]=sqrtf(best[1]);
   wallDistance[layer][cell]=fminf(wallAxisDistance[layer][0][cell],wallAxisDistance[layer][1][cell]);wallChecked[layer][cell]=1;
@@ -571,7 +698,12 @@ static float wallDistanceAt(int x,int y,int axis,int layer){
 static float roomDistance(const Surface *s,int axis){
  float x=s->x/16,y=s->y/16;int ix=(int)floorf(x),iy=(int)floorf(y);
  int layer=s->nz?(s->nz>0?0:1):2;
- return mixf(mixf(wallDistanceAt(ix,iy,axis,layer),wallDistanceAt(ix+1,iy,axis,layer),x-ix),mixf(wallDistanceAt(ix,iy+1,axis,layer),wallDistanceAt(ix+1,iy+1,axis,layer),x-ix),y-iy);
+ if(!roomDistCache.valid||roomDistCache.ix!=ix||roomDistCache.iy!=iy||roomDistCache.axis!=axis||roomDistCache.layer!=layer){
+  roomDistCache.valid=1;roomDistCache.ix=ix;roomDistCache.iy=iy;roomDistCache.axis=axis;roomDistCache.layer=layer;
+  roomDistCache.d00=wallDistanceAt(ix,iy,axis,layer);roomDistCache.d10=wallDistanceAt(ix+1,iy,axis,layer);
+  roomDistCache.d01=wallDistanceAt(ix,iy+1,axis,layer);roomDistCache.d11=wallDistanceAt(ix+1,iy+1,axis,layer);
+ }
+ return mixf(mixf(roomDistCache.d00,roomDistCache.d10,x-ix),mixf(roomDistCache.d01,roomDistCache.d11,x-ix),y-iy);
 }
 static float contactShade(const Surface *s,int column){
 #ifdef OE2_QA_INTERACTIONS
@@ -601,7 +733,7 @@ static float contactShade(const Surface *s,int column){
 }
 #ifdef OE2_LIGHTING_TEST
 int BrewLight_testContact(Render *r){
- Render *saved=renderer;renderer=r;memset(wallChecked,0,sizeof(wallChecked));
+ Render *saved=renderer;renderer=r;roomDistCache.valid=0;memset(wallChecked,0,sizeof(wallChecked));
  Surface floor={.x=64,.y=64,.z=0,.nz=127,.kind=1},far=floor,ceiling=floor;
  far.x=96;ceiling.z=64;ceiling.nz=-127;
  Surface wall={.x=64,.y=64,.z=0,.nx=127,.kind=2},middle=wall,corner=wall;
@@ -609,9 +741,9 @@ int BrewLight_testContact(Render *r){
  r->numLines=2;r->lines[1]=(Line){.x1=64,.y1=0,.x2=128,.y2=0,.flags=0x10000};
  int valid=contactShade(&floor,-1)<.36f&&contactShade(&ceiling,-1)<.36f&&contactShade(&far,-1)>.99f;
  valid=valid&&contactShade(&wall,-1)<.36f&&contactShade(&middle,-1)>.99f&&contactShade(&corner,-1)<.36f;
- r->numLines=1;r->lines[0].flags=0x40000000u;r->ceilHeight=r->effCeil=128;memset(wallChecked,0,sizeof(wallChecked));
+ r->numLines=1;r->lines[0].flags=0x40000000u;r->ceilHeight=r->effCeil=128;roomDistCache.valid=0;memset(wallChecked,0,sizeof(wallChecked));
  valid=valid&&contactShade(&floor,-1)>.99f;
- renderer=saved;memset(wallChecked,0,sizeof(wallChecked));return valid;
+ renderer=saved;roomDistCache.valid=0;memset(wallChecked,0,sizeof(wallChecked));return valid;
 }
 #endif
 static void glow(const Light *l,float flicker){
@@ -647,7 +779,11 @@ static void incidentEnergy(const Surface *s,const float *flicker,int column,floa
    float d=sqrtf(d2)+.01f,lambert=clampf((s->nx*dx+s->ny*dy+s->nz*dz)/(127*d),0,1);
    float attenuation=1-d/l->radius;
    float e=weight*attenuation*attenuation*l->power*flicker[j]*2.1f*(.18f+.82f*lambert);
+#ifdef OE2_QA_INTERACTIONS
    if(s->kind!=4)e*=shadow(s,j,column)*(.75f+.25f*ao);
+#else
+   if(s->kind!=4&&l->key!=2000)e*=shadow(s,j,column)*(.75f+.25f*ao);
+#endif
    energy[0]+=l->r*e;energy[1]+=l->g*e;energy[2]+=l->b*e;
   }
 }
@@ -701,20 +837,45 @@ static void sampleEnergy(const Surface *s,const float *flicker,int column,int ro
  }
  for(int ch=0;ch<3;ch++)energy[ch]=mixf(cache->low[ch],cache->high[ch],coordinate-index);
 }
+static int lutReady;
+static float byteToLinear[256];
+static uint8_t sqrtLUT[4097];
+static uint8_t toneLUT[4097];
+static void initLUT(void){
+ if(lutReady)return;
+ for(int i=0;i<256;i++){float v=i/255.f;byteToLinear[i]=v*v;}
+ for(int i=0;i<=4096;i++){
+  sqrtLUT[i]=(uint8_t)(sqrtf(i/4096.f)*255.f+.5f);
+  float lin=i*(4.f/4096.f);
+  float mapped=lin>1.f?lin/(1.f+(lin-1.f)*.7f):lin;
+  toneLUT[i]=(uint8_t)(clampf(sqrtf(mapped),0.f,1.f)*255.f+.5f);
+ }
+ lutReady=1;
+}
+static uint32_t shadePixelWithEnergy(const Surface *s,uint32_t c,const float *energy){
+ uint32_t out=0xff000000u;
+ float depth=(s->x-renderer->viewX)*fx+(s->y-renderer->viewY)*fy;
+ float haze=s->kind==4?0:.12f*clampf((depth-128)/384,0,1)*(fadeLevel/255.f),mist[3]={.012f,.022f,.035f};
+ for(int ch=0;ch<3;ch++){
+#ifdef OE2_QA_INTERACTIONS
+  float v=((c>>(ch*8))&255)/255.f,linear=v*v*energy[ch];
+  linear=mixf(linear/(1+fmaxf(0,linear-1)*.7f),mist[ch],haze);
+  out|=(uint32_t)(clampf(sqrtf(linear),0,1)*255+.5f)<<(ch*8);
+#else
+  float linear=byteToLinear[(c>>(ch*8))&255]*energy[ch]*(1.f-haze)+mist[ch]*haze;
+  int idx=(int)(linear*1024.f+.5f);
+  if(idx<0)idx=0;else if(idx>4096)idx=4096;
+  out|=(uint32_t)toneLUT[idx]<<(ch*8);
+#endif
+ }
+ return out;
+}
 static uint32_t shadePixel(const Surface *s,uint32_t c,const float *flicker,int column,int row){
   if(!s->kind)return c;
   float energy[3];
   if(s->kind==4&&weaponEnergyValid)memcpy(energy,weaponEnergy,sizeof(energy));
   else{sampleEnergy(s,flicker,column,row,energy);if(s->kind==4){memcpy(weaponEnergy,energy,sizeof(energy));weaponEnergyValid=1;}}
-  uint32_t out=0xff000000u;
-  float depth=(s->x-renderer->viewX)*fx+(s->y-renderer->viewY)*fy;
-  float haze=s->kind==4?0:.12f*clampf((depth-128)/384,0,1)*(fadeLevel/255.f),mist[3]={.012f,.022f,.035f};
-  for(int ch=0;ch<3;ch++){
-   float v=((c>>(ch*8))&255)/255.f,linear=v*v*energy[ch];
-   linear=mixf(linear/(1+fmaxf(0,linear-1)*.7f),mist[ch],haze);
-   out|=(uint32_t)(clampf(sqrtf(linear),0,1)*255+.5f)<<(ch*8);
-  }
-  return out;
+  return shadePixelWithEnergy(s,c,energy);
 }
 int BrewLight_weaponBottom(void){
  int bottom=-1;for(int i=0;i<width*height;i++)if(surfaces[i].kind==4)bottom=i/width;
@@ -724,15 +885,41 @@ static int staffShift(void){
  if(!weaponCopied||!g_app||g_app->player->ce.weapon!=1||g_app->player->isFamiliar||g_app->player->statusEffects[9].turns)return 0;
  int bottom=BrewLight_weaponBottom();return bottom>=0?height-1-bottom:0;
 }
+#ifndef OE2_QA_INTERACTIONS
+static float lowResEnergy[176*220][3];
+static unsigned char lowResReady[176*220];
+static int compatibleSurface(const Surface *a,const Surface *b,const Surface *c){
+ if(b->kind!=1&&b->kind!=2)return 0;
+ if(a->kind!=b->kind||c->kind!=b->kind)return 0;
+ if(a->nx!=b->nx||a->ny!=b->ny||a->nz!=b->nz||c->nx!=b->nx||c->ny!=b->ny||c->nz!=b->nz)return 0;
+ float d=fabsf(a->x-c->x)+fabsf(a->y-c->y)+fabsf(a->z-c->z);
+ return d<48.f;
+}
+static int compatibleSpan4(const Surface *s0,const Surface *s1,const Surface *s2,const Surface *s3,const Surface *s4){
+ if(s0->kind!=1&&s0->kind!=2)return 0;
+ if(s1->kind!=s0->kind||s2->kind!=s0->kind||s3->kind!=s0->kind||s4->kind!=s0->kind)return 0;
+ if(s1->nx!=s0->nx||s1->ny!=s0->ny||s1->nz!=s0->nz||s4->nx!=s0->nx||s4->ny!=s0->ny||s4->nz!=s0->nz)return 0;
+ if(s2->nx!=s0->nx||s2->ny!=s0->ny||s2->nz!=s0->nz||s3->nx!=s0->nx||s3->ny!=s0->ny||s3->nz!=s0->nz)return 0;
+ float d=fabsf(s0->x-s4->x)+fabsf(s0->y-s4->y)+fabsf(s0->z-s4->z);
+ return d<64.f;
+}
+#endif
 static const uint32_t *present(const uint32_t *original,int w,int h,int lighting){
  if(!renderer||w!=width||h!=height)return original;
  int shift=staffShift();if(!lighting&&!shift)return original;
- float flicker[8];weaponEnergyValid=0;memset(shadowColumns,0,sizeof(shadowColumns));memset(verticalEnergy,0,sizeof(verticalEnergy));memset(horizontalEnergy,0,sizeof(horizontalEnergy));
+ initLUT();
+ float flicker[8];weaponEnergyValid=0;roomDistCache.valid=0;
+ memset(floorShadowCache,0,sizeof(floorShadowCache));
+ memset(shadowColumns,0,(size_t)w*sizeof(shadowColumns[0]));
+ if(w>176){
+  memset(verticalEnergy,0,(size_t)w*sizeof(verticalEnergy[0]));
+  memset(horizontalEnergy,0,(size_t)h*sizeof(horizontalEnergy[0]));
+ }
 #ifdef OE2_QA_INTERACTIONS
  double started=emscripten_get_now(),shadingStarted;
 #endif
  if(lighting){
-  memset(cornerCache,0,sizeof(cornerCache));gather(renderer);
+  memset(cornerCache,0,(size_t)w*sizeof(cornerCache[0]));gather(renderer);
   for(int j=0;j<numLights;j++){
    int phase=lights[j].key%31; /* source identity, independent of processing range */
    flicker[j]=lights[j].flicker?(.92f+.06f*sinf(g_app->time*.021f+phase*2)+.04f*sinf(g_app->time*.047f+phase)):1;
@@ -743,11 +930,109 @@ static const uint32_t *present(const uint32_t *original,int w,int h,int lighting
  for(int j=0;j<numLights;j++)profile[4]+=casterCount[j];
 #endif
  traceActive=lighting;
- for(int i=0,x=0,y=0;i<w*h;i++){
-  const Surface *s=&surfaces[i];uint32_t c=original[i];
-  if(shift&&s->kind==4){s=&underWeapon[i];c=weaponBackground[i];}
-  lit[i]=lighting?shadePixel(s,c,flicker,x,y):c;
-  if(++x==w){x=0;y++;}
+#ifndef OE2_QA_INTERACTIONS
+ if(lighting&&w<=176&&h<=220){
+  const Surface *surfBase=surfaces;
+  memset(lowResReady,0,(size_t)w*(size_t)h);
+  for(int y=0;y<h;y+=2){
+   for(int x=0;x<w;x+=4){
+    int i=y*w+x;const Surface *s=&surfBase[i];
+    if(shift&&s->kind==4)s=&underWeapon[i];
+    if(!s->kind)continue;
+    if(s->kind==4&&weaponEnergyValid)memcpy(lowResEnergy[i],weaponEnergy,sizeof(weaponEnergy));
+    else{incidentEnergy(s,flicker,x,lowResEnergy[i]);if(s->kind==4){memcpy(weaponEnergy,lowResEnergy[i],sizeof(weaponEnergy));weaponEnergyValid=1;}}
+    lowResReady[i]=1;
+   }
+   if(w>0&&((w-1)&3)!=0){
+    int x=w-1,i=y*w+x;const Surface *s=&surfBase[i];
+    if(shift&&s->kind==4)s=&underWeapon[i];
+    if(s->kind){
+     if(s->kind==4&&weaponEnergyValid)memcpy(lowResEnergy[i],weaponEnergy,sizeof(weaponEnergy));
+     else{incidentEnergy(s,flicker,x,lowResEnergy[i]);if(s->kind==4){memcpy(weaponEnergy,lowResEnergy[i],sizeof(weaponEnergy));weaponEnergyValid=1;}}
+     lowResReady[i]=1;
+    }
+   }
+   for(int x=0;x<w;x+=4){
+    int i0=y*w+x;
+    if(x+4<w&&lowResReady[i0]&&lowResReady[i0+4]){
+     const Surface *s0=&surfBase[i0],*s1=&surfBase[i0+1],*s2=&surfBase[i0+2],*s3=&surfBase[i0+3],*s4=&surfBase[i0+4];
+     if(shift){
+      if(s0->kind==4)s0=&underWeapon[i0];
+      if(s1->kind==4)s1=&underWeapon[i0+1];
+      if(s2->kind==4)s2=&underWeapon[i0+2];
+      if(s3->kind==4)s3=&underWeapon[i0+3];
+      if(s4->kind==4)s4=&underWeapon[i0+4];
+     }
+     if(compatibleSpan4(s0,s1,s2,s3,s4)){
+      for(int ch=0;ch<3;ch++){
+       float e0=lowResEnergy[i0][ch],de=(lowResEnergy[i0+4][ch]-e0)*.25f;
+       lowResEnergy[i0+1][ch]=e0+de;
+       lowResEnergy[i0+2][ch]=e0+de*2.f;
+       lowResEnergy[i0+3][ch]=e0+de*3.f;
+      }
+      lowResReady[i0+1]=lowResReady[i0+2]=lowResReady[i0+3]=1;
+      continue;
+     }
+    }
+    int xEnd=x+4<w?x+4:w;
+    for(int xx=x+1;xx<xEnd;xx++){
+     int i=y*w+xx;if(lowResReady[i])continue;
+     const Surface *s=&surfBase[i];
+     if(shift&&s->kind==4)s=&underWeapon[i];
+     if(!s->kind)continue;
+     if(s->kind==4&&weaponEnergyValid)memcpy(lowResEnergy[i],weaponEnergy,sizeof(weaponEnergy));
+     else{incidentEnergy(s,flicker,xx,lowResEnergy[i]);if(s->kind==4){memcpy(weaponEnergy,lowResEnergy[i],sizeof(weaponEnergy));weaponEnergyValid=1;}}
+     lowResReady[i]=1;
+    }
+   }
+  }
+  for(int y=1;y<h;y+=2){
+   for(int x=0;x<w;x++){
+    int i=y*w+x;const Surface *s=&surfBase[i];
+    if(shift&&s->kind==4)s=&underWeapon[i];
+    if(!s->kind)continue;
+    if(y+1<h){
+     const Surface *sU=&surfBase[i-w],*sD=&surfBase[i+w];
+     if(shift&&sU->kind==4)sU=&underWeapon[i-w];
+     if(shift&&sD->kind==4)sD=&underWeapon[i+w];
+     if(lowResReady[i-w]&&lowResReady[i+w]&&compatibleSurface(sU,s,sD)){
+      for(int ch=0;ch<3;ch++)lowResEnergy[i][ch]=.5f*(lowResEnergy[i-w][ch]+lowResEnergy[i+w][ch]);
+      lowResReady[i]=1;continue;
+     }
+    }
+    if(x>0&&x+1<w){
+     const Surface *sL=&surfBase[i-1],*sR=&surfBase[i+1];
+     if(shift&&sL->kind==4)sL=&underWeapon[i-1];
+     if(shift&&sR->kind==4)sR=&underWeapon[i+1];
+     if(lowResReady[i-1]&&compatibleSurface(sL,s,sR)){
+      if(!lowResReady[i+1]){
+       if(sR->kind==4&&weaponEnergyValid)memcpy(lowResEnergy[i+1],weaponEnergy,sizeof(weaponEnergy));
+       else{incidentEnergy(sR,flicker,x+1,lowResEnergy[i+1]);if(sR->kind==4){memcpy(weaponEnergy,lowResEnergy[i+1],sizeof(weaponEnergy));weaponEnergyValid=1;}}
+       lowResReady[i+1]=1;
+      }
+      for(int ch=0;ch<3;ch++)lowResEnergy[i][ch]=.5f*(lowResEnergy[i-1][ch]+lowResEnergy[i+1][ch]);
+      lowResReady[i]=1;continue;
+     }
+    }
+    if(s->kind==4&&weaponEnergyValid)memcpy(lowResEnergy[i],weaponEnergy,sizeof(weaponEnergy));
+    else{incidentEnergy(s,flicker,x,lowResEnergy[i]);if(s->kind==4){memcpy(weaponEnergy,lowResEnergy[i],sizeof(weaponEnergy));weaponEnergyValid=1;}}
+    lowResReady[i]=1;
+   }
+  }
+  for(int i=0;i<w*h;i++){
+   const Surface *s=&surfBase[i];uint32_t c=original[i];
+   if(shift&&s->kind==4){s=&underWeapon[i];c=weaponBackground[i];}
+   lit[i]=s->kind?shadePixelWithEnergy(s,c,lowResEnergy[i]):c;
+  }
+ }else
+#endif
+ {
+  for(int i=0,x=0,y=0;i<w*h;i++){
+   const Surface *s=&surfaces[i];uint32_t c=original[i];
+   if(shift&&s->kind==4){s=&underWeapon[i];c=weaponBackground[i];}
+   lit[i]=lighting?shadePixel(s,c,flicker,x,y):c;
+   if(++x==w){x=0;y++;}
+  }
  }
 #ifdef OE2_QA_INTERACTIONS
  profile[1]=emscripten_get_now()-shadingStarted;double haloStarted=emscripten_get_now();
