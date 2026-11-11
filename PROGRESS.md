@@ -111,7 +111,6 @@ The interface has Russian/English selection. Original BREW story art and game te
 - Published the locally verified status HUD at the permanent root: source 171bc349cb3607cde0ca70f1589686dacb8ed00a, web-build 8dd38124ad02be2aceb73a1e5a17b604776295cb. No public-page/asset recheck was run, per the user's traffic preference.
 - Updated private APK to 0.2.2-test (versionCode 2), 17212874 bytes, using the existing package ID/signing key. Signature, alignment and packaged asset hashes pass; its game files match the local Pages release manifest. The APK remains local, and on-device testing is not claimed.
 
-
 ## World candles, menus and conversation identity — 2026-11-05
 
 - Matched the skull-and-bars candle in the supplied screenshot to wall identities 61/69 (materials 140/164). Warm local sources follow the actual flame texel, repeated/mirrored segments, wall height pieces and hidden geometry. The same artwork on wall-aligned props is covered, including five such props in map 6. Wood-grate identity 68 is not an emitter.
@@ -126,7 +125,6 @@ The interface has Russian/English selection. Original BREW story art and game te
 - Verification: native/WASM replay passes 1140 checks/1058 ticks with exact Classic/full-frame and binary-save parity. New interaction fixtures cover direct inventory/tabs/Back, original offer acceptance/refusal/cancel, completion metrics, look-at names and speaker portraits. Responsive layout passes 114 menu cases (19 screens × RU/EN × three phone/desktop sizes) plus 24 modifier layouts. The 1690-record Russian catalog and assembled text checks pass. APK bridge/debug persistence and native lock/impact fixtures also pass.
 - Remaining review: later multi-character scripted conversations, all merchant discount/story paths and device GPU behavior still need longer gameplay coverage; these checks do not constitute a whole-game playthrough.
 
-
 ## Equipped ring and adjustable light reach — 2026-11-05
 
 - Recovered the native equipped checkmark in inventory rows. The core supports one active ring: HUD now reads that actual owned/equipped ring, its original 18×18 icon (BAR 3031), name and description. Its small badge shares the fixed lower row with weapon/ammo under health and armor; tapping it opens the rings tab directly. It is hidden until the player owns a ring, and remains inactive behind modals.
@@ -135,13 +133,11 @@ The interface has Russian/English selection. Original BREW story art and game te
 
 - Final local browser review covered phone and desktop pause/trade/inventory layouts, actual typed merchant input, ring selection/removal indicators and the HUD badge's direct return to the rings tab. Settings slider reached 150% through pointer input; player/wand portraits and speaker changes were visually checked. UI export now fails on reported Godot script errors instead of relying on its process exit status. No public-site browser/asset check was performed.
 
-
 ## Publication and private APK — 2026-11-05
 
 - Pushed source b0db407589a41349a34572536c35e5ba7c4f0ad0 and replaced web-build with acd4a3d8de21ceeb7c3bed74a1207bc75e4b0974 at the same Pages root. No public asset downloads or live-site browser checks were made after publication.
 - Private dist/Orcs-Elves-II-0.2.3-test.apk: versionCode 3, 17700298 bytes, SHA-256 23647047f6f6ce116b60370d5cddbdc9036b1bea19b95b6e305aa4fcd18b4519. It embeds source b0db407589a41349a34572536c35e5ba7c4f0ad0 and the exact normal Web bundle, with no QA functions. Signature/alignment and all embedded file hashes pass; the existing test signing key is retained. Actual-device testing remains with the user. No APK was uploaded publicly.
 - Final visual evidence is kept locally in ignored build/proofs/final-ring-hud.png. The new ring badge, direct selection route, both speaker portraits and the 100–150% slider were verified in the local browser; layouts pass 114 menu, 24 ring-HUD and 24 modifier cases.
-
 
 ## Dense-light performance and clean focus names — 2026-11-06 (local only)
 
@@ -159,14 +155,12 @@ The interface has Russian/English selection. Original BREW story art and game te
 - Final local browser check verified the actual Settings slider at High 704×656 and 250%, then returned to Sol gameplay. Original look-at names and technical-name suppression, Forest/Sol lighting, actual camera input and Classic/Remastered switching were checked locally. Proofs: build/proofs/lighting-settings-250.png and lighting-sol-high-250.png. The isolated preview has persistence disabled; the normal updated build remains at 127.0.0.1:8782 with its existing save namespace.
 - Follow-up startup fix: gameplay/navigation controls ignore mouse hover while booting and while inactive behind modals, preventing the deferred “Skip turn · Space” tooltip from appearing over startup/main-menu/dialog windows. Active-game input and accessible button names remain available.
 
-
 ## Three lighting-distance presets — 2026-11-06 (local preparation)
 
 - Replaced the distance slider with a mutually exclusive Low / Medium / High button row. The internal radius multipliers are 1.5× / 2.5× / 5×; no numeric distance or percentage appears in the selector. Render-resolution quality remains an independent setting.
 - Raised the core limit to 500 and the minimum/default to 150. Browser preferences select the nearest supported preset, preserving existing 150/250 choices and mapping older intermediate values consistently. Gameplay/save data is unchanged.
 - Updated range/persistence/benchmark fixtures for the new presets, without running them. Per the user's request, this revision is prepared by compiling the normal Web core and exporting the UI; browser playtesting and new performance measurements are left to the user. Earlier measurements apply to their recorded settings and do not establish performance at the new High radius.
 - Work remains local; no publication or APK build is part of this request.
-
 
 ## Corrected processing distance in walking steps — 2026-11-06
 
@@ -177,14 +171,12 @@ The interface has Russian/English selection. Original BREW story art and game te
 - The menu has Low/Medium/High only and calls the setting Lighting draw distance. A separate processing-steps preference migrates the old preset names consistently (150→Low, 250→Medium, 500→High); old numeric values are never treated as step counts.
 - Prepared the normal local core/UI build. Per the user's continuing preference, no browser/gameplay/performance suite is run and no fresh performance/visual-equivalence claim is made. Existing test fixtures were updated for the clarified semantics; earlier timing tables belong to the former renderer settings. No publication or APK build.
 
-
 ## Approved Web publication — 2026-11-06
 
 - The user approved publishing the prepared Web revision with optimized dense-scene lighting, clean focus labels, startup hover suppression and corrected 4/7/10-step processing presets at the fixed 120% appearance.
 - Publication preflight confirms normal-core/UI export success, matching source/runtime bytes, matching content-hashed UI pack and no QA exports in the shipped WASM. The prepared artifact is used as-is. No new gameplay/performance/browser suite was run after the user's self-playtest preference.
 - Publish source and the Web bundle to the existing repository/Pages root with the same save namespace and legacy redirect. Do not build/upload APK or download public assets for a redundant live-site check.
 - Published source e2cd42c6b03e59e9c40869f10d3d8399785d6a41 and web-build 9829fbcc737b97e28282a4ef00c98be3bb3d9f79. GitHub Pages API reports this exact build as built without errors at the permanent root. All 12 release files match the prepared local bundle and manifest hashes. No public asset download/browser recheck or APK build was performed.
-
 
 ## Approved processing-distance adjustment — 2026-11-06
 
@@ -202,7 +194,6 @@ The interface has Russian/English selection. Original BREW story art and game te
 - Reproducible exporter: tools/export_weapon_art_kit.py, with an optional new --output folder. Existing handoff folders/ZIPs are protected. Derived art stays ignored and is not uploaded to the source or Pages branch.
 - GitHub Pages API confirms web-build 64eee153fef1db49853d7808360d774cc30d9289 completed successfully without errors. The artist handoff ZIP is local only (524090 bytes, SHA-256 8b71f97abe34e457f6368b8bcdb25bc292a75405370df0de3a978d5818c5a364).
 
-
 ## Full-circle lighting and Flaming Sword alignment — 2026-11-06
 
 - Removed all view-cone/angular filtering. Processing now uses the full Low/Medium/High radius (5/15/20 cells) around the controlled first-person position. Both source eligibility and receiver cutoff are independent of look direction. Sources whose falloff overlaps the circle remain eligible, including sources behind the player. Fixed former 120% source appearance and the last-cell distance fade remain.
@@ -212,7 +203,6 @@ The interface has Russian/English selection. Original BREW story art and game te
 - Circular-region/source-selection checks cover 144 look directions across maps 4/5/6 and every radius preset, with identical selected source IDs through each full turn and pure getters. Original wall-candle geometry/extinguish behavior is also checked as a focused regression. No broad gameplay/performance/browser suite or user-save interaction is part of this change.
 - Local evidence: build/sword-alignment/{before,after}/idle-0-q0.png, build/sword-alignment/after-scene/idle-high-scene.png, build/sword-alignment/after/report.json and build/radius-lighting-check.json. The user explicitly requested Web publication after completion; no APK build is requested.
 - Published source 66fd4d0321c060108f24a6a89f9ff3247c70256a and web-build 6489a5fd84cce3954226fed5ce6c9679dc7a053f at the permanent Pages root. GitHub Pages API confirms this exact build completed successfully. All 12 deployed files match the checked local bundle. No public-page/asset recheck, live-user-game interaction or APK build was performed.
-
 
 ## Dynamic GPU lighting investigation — 2026-11-06 (local)
 
@@ -225,18 +215,27 @@ The interface has Russian/English selection. Original BREW story art and game te
 - Normal core, native driver and Godot Web export pass. Native/WASM replay still has 1140 exact model/Classic comparisons over 1058 ticks and byte-identical SD_0–SD_3. New GPU getters at all qualities preserve model, canonical pixels and saved bytes. The normal bundle has a matching core/runtime/UI content tag and no QA exports.
 - Evidence is local under build/gpu-check/ (report.json, browser-report.json, ui-report.json, walk-cpu-report.json, walk-gpu-report.json and screenshots), build/gpu-parity.log and build/parity-result.json. QA browser games use disposable profiles/origins and persist:false; the user's live game and saves were not opened/reloaded. This new revision remains local, with no source/Pages publication or APK build.
 
-
 ## Approved GPU-lighting Web publication
 
 - The user explicitly requested publishing the completed local GPU revision. Release preflight confirms matching core/runtime/UI tag 5c22dc5225a3a140 and no QA exports. Existing local evidence remains valid: 504 all-map comparisons, 15 actual WebGL fixtures, separate matching Dwarkar walks, isolated Godot wiring/toggles and 1140 native/WASM parity checks with exact saved bytes.
 - Publish the prepared source and normal Web bundle to the existing permanent Pages root. No new gameplay/browser suites, public asset downloads, live-user-game interaction or APK build are required.
 
-## macOS native SDL2 build and PlayStation Vita port — 2026-11-11 (local)
+## PlayStation Vita port
 
-- Updated `engine/CMakeLists.txt` with macOS fallback targets for system `zlib`, Homebrew `SDL2`, and `libavcodec`/`libavutil` when `pkg-config` is unavailable, and wired `vita/standalone_bridge.c` + `host/lighting.c` + `host/presentation.c` into the native macOS `oe2` target (`F2` toggles Remastered/Classic, `F3` cycles lighting range).
 - Added PlayStation Vita port in `vita/` (`vita/main_vita.c`, `vita/platform_vita.c`, `vita/standalone_bridge.c`, `vita/pmd_vita.c`, `vita/README.md`) and builder `tools/build_vita.py`.
-- The Vita port uses `SceCtrl` dual-stick + button polling (`Select` toggles the automap, `Square` skips move / passes turn, `L + Select` cycles lighting range, `R + Select` toggles integer scaling, D-pad adjusts merchant offers in menu `0x135`), pre-decoded 8 kHz PCM audio from `app0:gamedata/audio/`, read-only BAR/MOD assets from `app0:gamedata/`, and persistent saves in `ux0:data/oe2/`.
-- Built `dist/Orcs-Elves-II-Vita.vpk` (6,750,397 bytes, SHA-256 `a7d2def2b46eb6bdd3b1f52459d6646beafba5a5bf2a8f1f286a8d899e5ba670`, Title ID `ORCS00002`) with original-art LiveArea assets (`icon0.png`, `bg.png`, `startup.png`), all 115 pre-decoded audio clips bundled, a native `Lighting  Off/On` option in the front-end (`0x11`) and in-game (`0x66`) Options menus (defaulting to `On`, persisted alongside `rangeSteps` in an 8-byte `LightingCfg` sidecar without a toggle toast), and a Doom RPG Vita-style `352×200` Hor+ widescreen viewport with centered `176`-wide dialogues, HUD status elements, and menus.
+- The Vita port uses `SceCtrl` dual-stick + button polling (`Select` toggles the automap, `Square` skips move / passes turn, D-pad adjusts merchant offers in menu `0x135`), pre-decoded 8 kHz PCM audio from `app0:gamedata/audio/`, read-only BAR/MOD assets from `app0:gamedata/`, and persistent saves in `ux0:data/oe2/`.
+- Built `dist/Orcs-Elves-II-Vita.vpk` (6,746,039 bytes, SHA-256 `16c210d7c7e77a590271ec7dea1f51bcafd50df2c80a60622e7faf46118e0de3`, Title ID `ORCS00002`) with original-art LiveArea assets (`icon0.png`, `bg.png`, `startup.png`), all 115 pre-decoded audio clips bundled, a native `Lighting  Off/On` option in the front-end (`0x11`) and in-game (`0x66`) Options menus (defaulting to `On`, persisted alongside `rangeSteps` in an 8-byte `LightingCfg` sidecar without a toggle toast), and a Doom RPG Vita-style `352×200` Hor+ widescreen viewport with centered `176`-wide dialogues, HUD status elements, and menus.
+- Implemented Option #2 Remastered widescreen lighting optimization behind `#define OE2_NO_SPRITE_SHADOWS` (`host/lighting.c`, `vita/standalone_bridge.c`, `tools/build_vita.py`, `engine/src/CMakeLists.txt`):
+  - Disabled dynamic billboard sprite shadow casting (`casterBlocks`, `activeCasterList`, `BrewLight_tagCaster`, `BrewLight_poseCaster`, `checked`, `visibility`, `wallVisibility`) while retaining static wall ray shadows (`BrewLight_visible`), contact ambient occlusion (`contactShade`), point-light Lambertian/attenuation shading, and screen-space light halos (`glow`).
+  - Added persistent wall-shadow cache slot mapping (`lightWallSlot[8]`) matched by `wallHash` so static world lights keep their cached 16×16×8 visibility bitsets (`wallSampleReady`) even when `lights[]` reorders as lights enter or leave the player's radius.
+  - Replaced float irradiance buffers (`lowResEnergy`) and per-pixel float `shadePixelWithEnergy` composite with Q10 integer fixed-point irradiance (`lowResEnergyQ10`, `byteToLinearQ10`, `samplePointQ10`) with distance haze folded at the sample points, eliminating all floating-point operations and `Surface` reads (`935 KB`) from the final 58,432-pixel composite loop.
+  - Checked `samePose` directly on `b->px` via `hash_fb_rect` before `lut565ToRgba` conversion in `OE2_captureWorld` / `apply_world_lighting` and merged `OE2_presentFrame` into a single pass.
+  - Headless 320-tick widescreen Remastered benchmark improved from `766.2 ms` (`547.9 ms` lighting overhead over the `218.3 ms` Classic baseline) -> `439.9 ms` (`221.6 ms` lighting overhead) -> `239.4 ms` (`21.1 ms` lighting overhead, a ~26× reduction in lighting CPU time).
+- Optimized Remastered widescreen lighting performance for PS Vita / standalone (`host/lighting.c`, `vita/standalone_bridge.c`):
+  - Added stationary pose caching in `apply_world_lighting`: when the camera position/angle, screen signature, and viewport do not change (dialogs, menus, standing still, waiting for turn), the previously lit RGB565 framebuffer is directly reused via fast row `memcpy` instead of re-lighting 58,432 pixels at 25 Hz.
+  - Implemented widescreen-scaled 8×2 horizontal span irradiance evaluation (`xStep = (w > 176) ? 8 : 4`) with `compatibleSpan`: on 352-wide screens, 8 pixels covers the identical angular width as 4 pixels did on 176 width, maintaining the same spatial sampling density (44 samples per row) while cutting 3D light calculation calls by half.
+  - Enabled sprite billboard compatibility in `compatibleSurface` and surface continuity reuse on odd rows (`y = 1; y < h; y += 2`): odd-row pixels matching the surface kind and normal of the pixel above, below, or to the left reuse or average irradiance instead of falling back to per-pixel shadow/AO evaluations.
+  - Optimized `shadePixelWithEnergy` into a branch-free, loop-unrolled fast path: when depth is within 128 units (or weapon/fade <= 0), haze math and mist lerps are skipped completely and channel lookups are mapped directly to `toneLUT`.
 - Patched standalone/PS Vita widescreen viewport and centered UI (`engine/src/main.c`, `vita/main_vita.c`, `vita/platform_vita.c`, `engine/src/game/canvas.c`, `engine/src/game/render_load.c`, `engine/src/game/render.c`, `engine/src/game/render_span.c`, `engine/src/game/combat_weapon.c`, `engine/src/game/core_gfx.c`, `engine/src/game/hud_draw.c`, `engine/src/game/ui_dialog.c`, `engine/src/game/menu_system.c`, `engine/src/game/menu_items.c`, `engine/src/game/menu_tellafriend.c`, `engine/src/game/ui_screens.c`, `host/lighting.c`):
   - Set standalone resolution to `352×200` (`1.76:1` aspect ratio matching the PS Vita's `960×544` screen), hid the 20 px phone softkey bar on widescreen (`hasStatusBar = 0`), and expanded the 3D viewport to `352×166` between the full-width top (`20` px) and bottom (`15` px) HUD bars.
   - Implemented true Hor+ widescreen 3D projection by keeping vertical/horizontal focal lengths (`projH`/`projW`) and first-person weapon/particle scale anchored to `176` px while expanding horizontal frustum clipping (`Render_clipSegmentNear`), flat floor/ceiling spans (`Render_drawFlatRow`), and lighting column vectors (`BrewLight_span` / `glow`) across the full `352` px width.
@@ -249,3 +248,13 @@ The interface has Russian/English selection. Original BREW story art and game te
   - Replaced 24-iteration linear emitter/caster table scans with O(1) lookup tables (`sourceByTile[256]`, `casterEligibleTile[256]`) and cached normalized wall normals across columns of the same line segment in `BrewLight_span`.
   - Restricted per-frame `shadowColumns`, `cornerCache`, and `floorDirections` zeroing to the active viewport dimensions (`176x164` instead of `704x880`), added 16×16 floor/ceiling cell caches for `shadow` and `roomDistance`, expanded native `176x164` surface-aware irradiance interpolation to 4×2 horizontal spans (`compatibleSpan4`), folded highlight rolloff + `sqrtf` into a single `toneLUT[4097]` to eliminate 3 floating-point divisions per pixel across all 28,864 pixels, precomputed `lut565ToRgba`, set default Vita light range to `5` steps (`LIGHT: LOW`), and enabled `-mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard -ftree-vectorize -ffast-math -funroll-loops` on Vita lighting units.
 - Verified native `arm64` compilation and headless startup/cinematic/first-dungeon smoke runs on macOS (400-tick headless benchmark improved from ~5.72 ms/tick originally -> 1.56 ms/tick -> 0.73 ms/tick). Physical PS Vita / Vita3K controller playtesting remains with the user.
+- Implemented `OE2_NO_SPRITE_SHADOWS` optimizations #2–#5 for PS Vita / standalone widescreen lighting (`host/lighting.c`, `host/lighting_gpu.inc`):
+  - **#2 (Fast Odd-Row Pass & Zero Float Distance Checks)**: Eliminated floating-point distance math (`fabsf`) from `compatibleSurface` / `compatibleSpan` in favor of integer fixed-point Q2 deltas and `sameSurfNormal`, removed odd-row `+1` horizontal `samplePointQ10` lookaheads, and constrained odd-row horizontal fallback reuse to `(x & (xStep - 1)) != 0` seams.
+  - **#3 (Sprites in `compatibleSpan` & Neighbor Reuse)**: Enabled `rawKind == 3` sprites in `compatibleSpan` with a midpoint sanity check (`mx + my <= 16*4`) so billboard foregrounds interpolate across 8 px horizontal spans, and added adjacent `i - 1` neighbor reuse (`sameSurfNormal`) in the even-row fallback loop.
+  - **#4 (`gather()` Static Emitter Cache & Frame-Clear Elimination)**: Cached static map emitters (`wallCandleLines`, `spriteCandles`, `lavaTiles`) per loaded map in `gather()` instead of rescanning all map lines, sprites, and 1,024 floor tiles every frame; replaced per-frame `memset`s on `floorShadowCache`, `shadowColumns` (101 KB), `cornerCache` (7 KB), and `lowResReady` (58 KB) with `shadowFrameGen` (`uint32_t`) and `lowResGen` (`uint8_t`) generation stamps; removed unused `wallSampleVis` (393 KB) and unused thread headers.
+  - **#5 (8-byte `Surface` Struct & Integer Geometry Capture)**: Compacted `Surface` from 16 bytes to 8 bytes (`int16_t x, y, zKind; signed char nx, ny;` in Q2 fixed-point `1/4` world unit + packed 3-bit `rawKind`) so the entire `352×166` surface buffer fits in ~467 KB (inside PS Vita's 512 KB L2 cache); removed float conversions in `BrewLight_floor` and skipped `floorDirections` writes/clears when `w <= 400 && h <= 240`; avoided `/ 31` and `/ 63` integer divisions in `BrewLight_weapon`.
+- Verified native `arm64` compilation (both `OE2_NO_SPRITE_SHADOWS` on and off cleanly with zero errors), `3000`-tick headless macOS benchmark (`OE2_REMASTERED=1`: `0.83s` user vs `OE2_REMASTERED=0`: `0.79s` user; screenshots verified visually across unobstructed 3D corridors/walls/floor/weapon), and rebuilt `dist/Orcs-Elves-II-Vita.vpk` (`6,748,151` bytes, SHA-256 `33c7f6fd9633b22ee7364aa315bf1589bc1f7624563baa7175906996681a1263`). Physical PS Vita FPS testing remains with the user.
+- Implemented **#1** PS Vita 3-core lighting worker pool under `#if defined(OE2_NO_SPRITE_SHADOWS) && defined(__vita__)` (`host/lighting.c`):
+  - Persistent worker threads pinned to `SCE_KERNEL_CPU_MASK_USER_1` and `SCE_KERNEL_CPU_MASK_USER_2` alongside the main thread (`SCE_KERNEL_CPU_MASK_USER_0`), synchronized via two semaphore-gated phases (`phase 0` even-row grid sampling, `phase 1` span interpolation + odd-row evaluation + `toneLUT` composite) with 32-pixel work-stealing column chunks (`chunkW = xStep * 4`) aligned to ARM Cortex-A9 32-byte cache lines; non-Vita builds remain single-threaded (`LIGHT_THREADS = 1`).
+  - Isolated per-thread `floorShadowCache`, `roomDistCache`, and `weaponEnergyQ10` inside `LightWorkerCtx` (`shadowFrameGen`-stamped) and converted shared `wallVisState` (`_Atomic uint16_t`), `numDirtyWallAtomic`, and `wallCheckedAtomic` (`_Atomic uint8_t` with `0/1/2` CAS claim + acquire/release barriers) to lock-free C11 `<stdatomic.h>` atomics for race-free ARMv7 execution.
+- Verified after the final edit: native macOS `arm64` build (`OE2_NO_SPRITE_SHADOWS` both on and off, `LIGHT_THREADS = 1`), headless macOS `LightingCfg` persistence test across close/relaunch, `3000`-tick headless macOS run (`OE2_REMASTERED=1`: `0.88s` user vs `OE2_REMASTERED=0`: `0.82s` user), and `python3 tools/build_vita.py` producing `dist/Orcs-Elves-II-Vita.vpk` (`6,751,584` bytes, SHA-256 `d921edd779f62b26f0fd70251179e43e35a9cd9dfbfda0300b4a5747f73c501c`). Real PS Vita hardware FPS testing remains with the user.

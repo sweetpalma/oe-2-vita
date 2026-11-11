@@ -22,9 +22,10 @@ static GpuNearColumn gpuNearColumns[704];
 static unsigned gpuCoordinate(float value){return (unsigned)clampf(floorf((value+1024)*16+.5f),0,65535);}
 static unsigned gpuRelative(float value){return (unsigned)clampf(floorf((value+2)*16384+.5f),0,65535);}
 static unsigned gpuNormal(const Surface *s){
- if(!s->kind)return 250;
- if(s->kind==4)return 251;
- if(s->nz)return s->nz>0?248:249;
+ int kind=surfKind(s),snz=surfNz(s);
+ if(!kind)return 250;
+ if(kind==4)return 251;
+ if(snz)return snz>0?248:249;
  unsigned key=(unsigned char)s->nx|((unsigned char)s->ny<<8);
  if(!gpuNormalCodes[key]){
   int angle=(int)floorf(atan2f(s->ny,s->nx)*(248.f/6.28318530718f)+.5f);
@@ -98,25 +99,26 @@ static void gpuMarkReceiver(uint32_t xy,uint32_t zna,int column,int row){
  }
 }
 static void gpuPack(int index,const Surface *s,uint32_t colour,int column){
- unsigned normal=gpuNormal(s),flags=s->kind==3?128:0;
- unsigned z=gpuCoordinate(s->z);
+ unsigned normal=gpuNormal(s),flags=surfKind(s)==3?128:0;
+ float sx=surfX(s),sy=surfY(s),sz=surfZ(s);
+ unsigned z=gpuCoordinate(sz);
  gpuColour[index]=colour;
- gpuXY[index]=gpuCoordinate(s->x)|(gpuCoordinate(s->y)<<16);
+ gpuXY[index]=gpuCoordinate(sx)|(gpuCoordinate(sy)<<16);
  if(normal<248){
   /* Preserve precision at a point emitter's singular normal response without
    * float textures. Almost all receivers use absolute 1/16-unit coordinates;
    * a tiny <2-unit neighborhood uses 1/16384-unit source-relative coordinates. */
   GpuNearColumn *near=&gpuNearColumns[column];
-  if(!near->valid||near->x!=s->x||near->y!=s->y){
-   near->valid=1;near->x=s->x;near->y=s->y;near->mask=0;
-   for(int j=0;j<numLights;j++){float dx=s->x-lights[j].x,dy=s->y-lights[j].y;if(dx*dx+dy*dy<4)near->mask|=1<<j;}
+  if(!near->valid||near->x!=sx||near->y!=sy){
+   near->valid=1;near->x=sx;near->y=sy;near->mask=0;
+   for(int j=0;j<numLights;j++){float dx=sx-lights[j].x,dy=sy-lights[j].y;if(dx*dx+dy*dy<4)near->mask|=1<<j;}
   }
   if(near->mask)for(int j=0;j<numLights;j++)if(near->mask&(1<<j)){
-   float dx=s->x-lights[j].x,dy=s->y-lights[j].y,dz=s->z-lights[j].z;if(dx*dx+dy*dy+dz*dz>=4)continue;
+   float dx=sx-lights[j].x,dy=sy-lights[j].y,dz=sz-lights[j].z;if(dx*dx+dy*dy+dz*dz>=4)continue;
    gpuXY[index]=gpuRelative(dx)|(gpuRelative(dy)<<16);z=gpuRelative(dz);flags|=32|(j<<2);break;
   }
   int axis=abs(s->nx)>=abs(s->ny);float nx,ny,nz;gpuNormalVector(normal,&nx,&ny,&nz);
-  float coordinate=axis?s->x:s->y,bias=(axis?s->nx:s->ny)/127.f*2;
+  float coordinate=axis?sx:sy,bias=(axis?s->nx:s->ny)/127.f*2;
   float decoded=(axis?(gpuXY[index]&65535):(gpuXY[index]>>16))/16.f-1024;
   if(flags&32){int j=(flags>>2)&7;decoded=(axis?lights[j].x:lights[j].y)+(axis?(gpuXY[index]&65535):(gpuXY[index]>>16))/16384.f-2;}
   int originalCell=(int)floorf((coordinate+bias)/16),decodedCell=(int)floorf((decoded+(axis?nx:ny)*2)/16);
@@ -154,11 +156,11 @@ const uint32_t *BrewLight_gpu(const uint32_t *original,int w,int h){
 #endif
  for(int y=0;y<h;y++)for(int x=0;x<w;x++){
   int i=y*w+x;const Surface *s=&surfaces[i];uint32_t colour=original[i];
-  if(shift&&s->kind==4){s=&underWeapon[i];colour=weaponBackground[i];}
+  if(shift&&surfKind(s)==4){s=&underWeapon[i];colour=weaponBackground[i];}
   gpuPack(i,s,colour,x);
  }
  if(shift)for(int y=0;y<h-shift;y++)for(int x=0;x<w;x++){
-  int i=y*w+x;if(surfaces[i].kind==4)gpuPack((y+shift)*w+x,&surfaces[i],original[i],x);
+  int i=y*w+x;if(surfKind(&surfaces[i])==4)gpuPack((y+shift)*w+x,&surfaces[i],original[i],x);
  }
  memset(gpuParams,0,sizeof(gpuParams));
  gpuParams[0]=numLights;gpuParams[1]=w;gpuParams[2]=h;gpuParams[3]=fadeLevel/255.f;

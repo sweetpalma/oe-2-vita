@@ -173,6 +173,7 @@ def build_vita_elf():
         "-funsigned-char",
         "-DOE2_WEB_BRIDGE",
         "-DOE2_STANDALONE_BRIDGE",
+        "-DOE2_NO_SPRITE_SHADOWS",
         "-I" + str(ROOT / "engine/src"),
         "-I" + str(ROOT / "engine/src/game"),
         "-I" + str(ROOT / "host"),

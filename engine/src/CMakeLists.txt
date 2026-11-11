@@ -21,7 +21,7 @@ target_include_directories(oe2 PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/../../host
 	${CMAKE_CURRENT_SOURCE_DIR}/../../vita
 )
-target_compile_definitions(oe2 PRIVATE OE2_WEB_BRIDGE OE2_STANDALONE_BRIDGE)
+target_compile_definitions(oe2 PRIVATE OE2_WEB_BRIDGE OE2_STANDALONE_BRIDGE OE2_NO_SPRITE_SHADOWS)
 target_link_libraries(oe2 PRIVATE oe2core PkgConfig::SDL2 m)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 	# The original is ARM code: two's-complement wraparound in its fixed-point math (-fwrapv), and plain

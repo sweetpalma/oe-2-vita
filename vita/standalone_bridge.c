@@ -8,6 +8,8 @@
 #include "presentation.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <time.h>
 
 static int remasteredMode = 1;
 static int rangeSteps = 5; /* 5 (Low default), 15 (Med), or 20 (High) steps */
@@ -51,6 +53,18 @@ static inline uint16_t to_rgb565(uint32_t rgba)
 	return (uint16_t)((r << 11) | (g << 5) | b);
 }
 
+#ifdef OE2_NO_SPRITE_SHADOWS
+static uint32_t hash_fb_rect(const IBitmap *b, int x, int y, int w, int h)
+{
+	uint32_t hash = 2166136261u;
+	for (int row = 0; row < h; row += 2) {
+		const uint16_t *srcRow = &b->px[(y + row) * b->pitch + x];
+		for (int col = 0; col < w; col += 8)
+			hash = (hash ^ srcRow[col]) * 16777619u;
+	}
+	return hash;
+}
+#else
 static uint32_t hash_world_pixels(int count)
 {
 	uint32_t h = 2166136261u;
@@ -58,6 +72,9 @@ static uint32_t hash_world_pixels(int count)
 		h = (h ^ worldPixels[i]) * 16777619u;
 	return h;
 }
+#endif
+
+#include <time.h>
 
 static void apply_world_lighting(int x, int y, int w, int h)
 {
@@ -67,8 +84,12 @@ static void apply_world_lighting(int x, int y, int w, int h)
 	if (!hostConfigLoaded)
 		OE2_loadHostConfig();
 	ensure_lut565();
+#ifdef OE2_NO_SPRITE_SHADOWS
+	uint32_t sig = hash_fb_rect(b, x, y, w, h);
+#else
 	int count = w * h;
 	uint32_t sig = hash_world_pixels(count);
+#endif
 	int vx = (g_app && g_app->render) ? g_app->render->viewX : 0;
 	int vy = (g_app && g_app->render) ? g_app->render->viewY : 0;
 	int vz = (g_app && g_app->render) ? g_app->render->viewZ : 0;
@@ -76,7 +97,7 @@ static void apply_world_lighting(int x, int y, int w, int h)
 	int samePose = worldValid && worldX == x && worldY == y && worldW == w && worldH == h &&
 	               sig == lastFrameSig && vx == lastViewX && vy == lastViewY &&
 	               vz == lastViewZ && va == lastViewAngle;
-	if (samePose && (stationaryCount++ & 1) == 0) {
+	if (samePose) {
 		for (int row = 0; row < h; row++)
 			memcpy(&b->px[(y + row) * b->pitch + x], &lit565[row * w], (size_t)w * sizeof(uint16_t));
 		return;
@@ -89,6 +110,14 @@ static void apply_world_lighting(int x, int y, int w, int h)
 	lastViewZ = vz;
 	lastViewAngle = va;
 
+#ifdef OE2_NO_SPRITE_SHADOWS
+	for (int row = 0; row < h; row++) {
+		const uint16_t *srcRow = &b->px[(y + row) * b->pitch + x];
+		uint32_t *dstRow = &worldPixels[row * w];
+		for (int col = 0; col < w; col++)
+			dstRow[col] = lut565ToRgba[srcRow[col]];
+	}
+#endif
 	BrewLight_setRange(rangeSteps);
 	const uint32_t *src = remasteredMode ? BrewLight_render(worldPixels, w, h)
 	                                     : BrewLight_classic(worldPixels, w, h);
@@ -147,6 +176,7 @@ void OE2_captureWorld(const int16_t *rect)
 	int x = rect[0], y = rect[1], w = rect[2], h = rect[3];
 	if (!b || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > b->width || y + h > b->height)
 		return;
+#ifndef OE2_NO_SPRITE_SHADOWS
 	ensure_lut565();
 	for (int row = 0; row < h; row++) {
 		const uint16_t *srcRow = &b->px[(y + row) * b->pitch + x];
@@ -154,6 +184,7 @@ void OE2_captureWorld(const int16_t *rect)
 		for (int col = 0; col < w; col++)
 			dstRow[col] = lut565ToRgba[srcRow[col]];
 	}
+#endif
 	apply_world_lighting(x, y, w, h);
 	if (g_app && g_app->canvas && g_app->canvas->state == 0x13) {
 		/* Draw the native padlock indicator over the lit 3D view. */
@@ -368,6 +399,30 @@ void OE2_presentFrame(const uint16_t *fb, int pitchPixels, int scrW, int scrH, u
 {
 	cineCallsThisFrame = 0;
 	ensure_lut565();
+#ifdef OE2_NO_SPRITE_SHADOWS
+	int useLit = worldValid && g_app && g_app->canvas && is_3d_state(g_app->canvas->state) &&
+	             worldX >= 0 && worldY >= 0 && worldX + worldW <= scrW && worldY + worldH <= scrH;
+	for (int y = 0; y < scrH; y++) {
+		const uint16_t *row = fb + y * pitchPixels;
+		uint32_t *dst = outRgba + y * scrW;
+		if (useLit && y >= worldY && y < worldY + worldH) {
+			int wRow = y - worldY;
+			const uint16_t *lit565Row = lit565 + wRow * worldW;
+			const uint32_t *litRow = litPixels + wRow * worldW;
+			for (int x = 0; x < worldX; x++)
+				dst[x] = lut565ToRgba[row[x]];
+			for (int col = 0; col < worldW; col++) {
+				uint16_t c = row[worldX + col];
+				dst[worldX + col] = (c == lit565Row[col]) ? litRow[col] : lut565ToRgba[c];
+			}
+			for (int x = worldX + worldW; x < scrW; x++)
+				dst[x] = lut565ToRgba[row[x]];
+		} else {
+			for (int x = 0; x < scrW; x++)
+				dst[x] = lut565ToRgba[row[x]];
+		}
+	}
+#else
 	for (int y = 0; y < scrH; y++) {
 		const uint16_t *row = fb + y * pitchPixels;
 		uint32_t *dst = outRgba + y * scrW;
@@ -388,6 +443,7 @@ void OE2_presentFrame(const uint16_t *fb, int pitchPixels, int scrW, int scrH, u
 			}
 		}
 	}
+#endif
 	draw_toast(outRgba, scrW, scrH);
 }
 
