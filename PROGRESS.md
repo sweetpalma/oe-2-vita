@@ -230,3 +230,11 @@ The interface has Russian/English selection. Original BREW story art and game te
 
 - The user explicitly requested publishing the completed local GPU revision. Release preflight confirms matching core/runtime/UI tag 5c22dc5225a3a140 and no QA exports. Existing local evidence remains valid: 504 all-map comparisons, 15 actual WebGL fixtures, separate matching Dwarkar walks, isolated Godot wiring/toggles and 1140 native/WASM parity checks with exact saved bytes.
 - Publish the prepared source and normal Web bundle to the existing permanent Pages root. No new gameplay/browser suites, public asset downloads, live-user-game interaction or APK build are required.
+
+## macOS native SDL2 build and PlayStation Vita port — 2026-11-11 (local)
+
+- Updated `engine/CMakeLists.txt` with macOS fallback targets for system `zlib`, Homebrew `SDL2`, and `libavcodec`/`libavutil` when `pkg-config` is unavailable, and wired `vita/standalone_bridge.c` + `host/lighting.c` + `host/presentation.c` into the native macOS `oe2` target (`F2` toggles Remastered/Classic, `F3` cycles lighting range).
+- Added PlayStation Vita port in `vita/` (`vita/main_vita.c`, `vita/platform_vita.c`, `vita/standalone_bridge.c`, `vita/pmd_vita.c`, `vita/README.md`) and builder `tools/build_vita.py`.
+- The Vita port uses `SceCtrl` dual-stick + button polling (`Select` toggles Remastered/Classic, `L + Select` cycles lighting range, `R + Select` toggles integer scaling, D-pad adjusts merchant offers in menu `0x135`), pre-decoded 8 kHz PCM audio from `app0:gamedata/audio/`, read-only BAR/MOD assets from `app0:gamedata/`, and persistent saves in `ux0:data/oe2/`.
+- Built `dist/Orcs-Elves-II-Vita.vpk` (6,728,544 bytes, SHA-256 `295db5a6ae0e301acc388369a477181d1b8ef9a81bdb2cf8175652044e2b5c98`, Title ID `ORCS00002`) with original-art LiveArea assets (`icon0.png`, `bg.png`, `startup.png`) and all 115 pre-decoded audio clips bundled.
+- Verified native `arm64` compilation and a 320-tick headless startup/cinematic/first-dungeon smoke run on macOS. Physical PS Vita / Vita3K launch and controller playtesting remain with the user; no on-device Vita run is claimed.

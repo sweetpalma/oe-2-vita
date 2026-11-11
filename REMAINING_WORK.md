@@ -16,3 +16,5 @@
 11. Review speaker identity and original-art portrait framing in later multi-character cinematics, plus every merchant/discount/inventory path during a full playthrough. Modern menus, native trade input and level-result presentation have local fixtures and responsive checks; those checks do not cover every story branch.
 
 12. After the artist returns edited weapon PNGs, validate the manifest/frame names, original canvases and alpha, implement a separate replacement path, and review all idle/attack/secondary/glow layers in game. The original PNG handoff is prepared; no replacement art is installed yet.
+
+13. Test `dist/Orcs-Elves-II-Vita.vpk` on physical PlayStation Vita hardware or Vita3K: verify GXM display scaling, `SceCtrl` button/stick responsiveness, audio playback, `ux0:data/oe2/` save persistence, and Remastered CPU lighting frame times across dense maps.
