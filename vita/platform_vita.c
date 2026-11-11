@@ -184,8 +184,8 @@ static int map_vita_button(uint32_t bit, uint32_t rawButtons)
 	case VBTN_CROSS: return AVK_SELECT;
 	case VBTN_START: return AVK_SOFT1;
 	case VBTN_CIRCLE:
-		if (st == 3) /* ST_PLAYING: pass turn (or previous weapon with L) */
-			return holdL ? AVK_STAR : AVK_9;
+		if (st == 3) /* ST_PLAYING: previous weapon with L */
+			return holdL ? AVK_STAR : 0;
 		return AVK_CLR;
 	case VBTN_TRIANGLE:
 		if (st == 3) {
@@ -198,8 +198,12 @@ static int map_vita_button(uint32_t bit, uint32_t rawButtons)
 		return AVK_SOFT2;
 	case VBTN_SQUARE:
 		if (st == 3 || st == 5)
-			return holdL ? AVK_5 : AVK_POUND; /* automap, or quick weapon list with L */
+			return holdL ? AVK_5 : AVK_9; /* skip move / pass turn, or quick weapon list with L */
 		return AVK_CLR;
+	case VBTN_SELECT:
+		if (st == 3 || st == 5)
+			return AVK_POUND; /* toggle automap */
+		return 0;
 	default:
 		return 0;
 	}
@@ -299,15 +303,17 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count)
 			cur |= VBTN_SELECT;
 
 		uint32_t changed = cur ^ prevButtons;
-		if ((changed & VBTN_SELECT) && (cur & VBTN_SELECT)) {
+		if ((changed & VBTN_SELECT) && (cur & VBTN_SELECT) &&
+		    (pad.buttons & (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER))) {
 			if (pad.buttons & SCE_CTRL_LTRIGGER) {
 				OE2_cycleLightRange();
-			} else if (pad.buttons & SCE_CTRL_RTRIGGER) {
+			} else {
 				integerScale = !integerScale;
 				SDL_RenderSetIntegerScale(ren, integerScale ? SDL_TRUE : SDL_FALSE);
-			} else {
-				OE2_toggleRemastered();
 			}
+			prevButtons = cur;
+			*count = n;
+			return keepGoing;
 		}
 		if ((changed & VBTN_START) && (cur & VBTN_START) && (pad.buttons & SCE_CTRL_RTRIGGER)) {
 			OE2_toggleFastTick();
@@ -319,7 +325,7 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count)
 		static const uint32_t tracked[] = {
 			VBTN_UP, VBTN_DOWN, VBTN_LEFT, VBTN_RIGHT,
 			VBTN_SLEFT, VBTN_SRIGHT, VBTN_CROSS, VBTN_CIRCLE,
-			VBTN_TRIANGLE, VBTN_SQUARE, VBTN_START
+			VBTN_TRIANGLE, VBTN_SQUARE, VBTN_START, VBTN_SELECT
 		};
 		for (size_t i = 0; i < sizeof(tracked) / sizeof(tracked[0]) && n < max; i++) {
 			uint32_t b = tracked[i];
