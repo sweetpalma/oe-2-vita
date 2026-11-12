@@ -39,7 +39,7 @@ def main():
 
     arch = platform.machine().lower() or "unknown"
     build_dir = BUILD_ROOT / "pc" / f"{sys.platform}-{arch}"
-    subprocess.run([cmake, "-S", str(ROOT / "engine"), "-B", str(build_dir)], check=True)
+    subprocess.run([cmake, "-S", str(ROOT / "src/engine"), "-B", str(build_dir)], check=True)
     subprocess.run([cmake, "--build", str(build_dir), "--parallel"], check=True)
 
     exe_name = "oe2.exe" if sys.platform == "win32" else "oe2"

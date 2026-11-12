@@ -1,7 +1,7 @@
 # Orcs & Elves II - PS Vita Port
 
 - Work only in this project. Do not change WolfMoon or the previous working port.
-- The sole gameplay foundation is BREW 7.0.41 and the reconstructed C engine in engine/.
+- The sole gameplay foundation is BREW 7.0.41 and the reconstructed C engine in `src/engine/`.
 - Keep Classic as original BREW graphics. Remastered shares the same simulation and saves; only presentation changes.
 - Preserve the original 40 ms simulation step. Keep host services and UI adapters outside game logic where practical.
 - Original archives, gamedata, generated builds and downloaded tools stay out of Git.

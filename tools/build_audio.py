@@ -44,15 +44,15 @@ def host_deps_flags() -> tuple[list[str], list[str]]:
 
 def ensure_oe2tool() -> Path:
     sources = [
-        ROOT / "engine/src/bar.c",
-        ROOT / "engine/src/pmd.c",
-        ROOT / "engine/src/moddata.c",
-        ROOT / "engine/src/tools/oe2tool.c",
+        ROOT / "src/engine/src/bar.c",
+        ROOT / "src/engine/src/pmd.c",
+        ROOT / "src/engine/src/moddata.c",
+        ROOT / "src/engine/src/tools/oe2tool.c",
     ]
     headers = [
-        ROOT / "engine/src/bar.h",
-        ROOT / "engine/src/pmd.h",
-        ROOT / "engine/src/moddata.h",
+        ROOT / "src/engine/src/bar.h",
+        ROOT / "src/engine/src/pmd.h",
+        ROOT / "src/engine/src/moddata.h",
     ]
     tool_path = ROOT / "build/host" / f"{sys.platform}-{os.uname().machine}" / "oe2tool"
     newest_src = max(p.stat().st_mtime for p in (*sources, *headers))
@@ -69,7 +69,7 @@ def ensure_oe2tool() -> Path:
         cc,
         "-std=c17",
         "-O2",
-        f"-I{ROOT / 'engine/src'}",
+        f"-I{ROOT / 'src/engine/src'}",
         *cflags,
         *map(str, sources),
         *libs,

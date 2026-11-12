@@ -280,17 +280,17 @@ def build_vita_elf():
             raise RuntimeError(f"Required VitaSDK tool not found: {tool}")
 
     game_sources = [
-        ROOT / "engine/src/bar.c",
-        ROOT / "engine/src/moddata.c",
-        *sorted((ROOT / "engine/src/game").glob("*.c")),
-        ROOT / "vita/pmd_vita.c",
-        ROOT / "vita/platform_vita.c",
-        ROOT / "vita/main_vita.c",
+        ROOT / "src/engine/src/bar.c",
+        ROOT / "src/engine/src/moddata.c",
+        *sorted((ROOT / "src/engine/src/game").glob("*.c")),
+        ROOT / "src/vita/pmd_vita.c",
+        ROOT / "src/vita/platform_vita.c",
+        ROOT / "src/vita/main_vita.c",
     ]
     fast_math_sources = [
-        ROOT / "host/lighting.c",
-        ROOT / "host/presentation.c",
-        ROOT / "host/standalone_bridge.c",
+        ROOT / "src/host/lighting.c",
+        ROOT / "src/host/presentation.c",
+        ROOT / "src/host/standalone_bridge.c",
     ]
 
     elf_path = BUILD / "oe2.elf"
@@ -311,10 +311,10 @@ def build_vita_elf():
         "-funsigned-char",
         "-DOE2_STANDALONE_BRIDGE",
         "-DOE2_NO_SPRITE_SHADOWS",
-        "-I" + str(ROOT / "engine/src"),
-        "-I" + str(ROOT / "engine/src/game"),
-        "-I" + str(ROOT / "host"),
-        "-I" + str(ROOT / "vita"),
+        "-I" + str(ROOT / "src/engine/src"),
+        "-I" + str(ROOT / "src/engine/src/game"),
+        "-I" + str(ROOT / "src/host"),
+        "-I" + str(ROOT / "src/vita"),
         "-I" + str(VITASDK / "arm-vita-eabi/include/SDL2"),
     ]
     objects = []
