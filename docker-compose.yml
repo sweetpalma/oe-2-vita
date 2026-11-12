@@ -7,3 +7,11 @@ services:
       - .:/work
       - ./data:/data
 
+  pc:
+    build: .
+    image: oe2-vita:latest
+    working_dir: /work
+    volumes:
+      - .:/work
+      - ./data:/data
+    command: ["python3", "tools/build_pc.py"]
