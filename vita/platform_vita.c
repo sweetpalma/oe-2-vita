@@ -275,19 +275,18 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count)
 		const int deadzone = 50;
 		int lx = (int)pad.lx - 128;
 		int ly = (int)pad.ly - 128;
-		int rx = (int)pad.rx - 128;
 
 		if ((pad.buttons & SCE_CTRL_UP) || ly < -deadzone)
 			cur |= VBTN_UP;
 		if ((pad.buttons & SCE_CTRL_DOWN) || ly > deadzone)
 			cur |= VBTN_DOWN;
-		if ((pad.buttons & SCE_CTRL_LEFT) || rx < -deadzone)
+		if ((pad.buttons & SCE_CTRL_LEFT) || lx < -deadzone)
 			cur |= VBTN_LEFT;
-		if ((pad.buttons & SCE_CTRL_RIGHT) || rx > deadzone)
+		if ((pad.buttons & SCE_CTRL_RIGHT) || lx > deadzone)
 			cur |= VBTN_RIGHT;
-		if ((pad.buttons & SCE_CTRL_LTRIGGER) || lx < -deadzone)
+		if (pad.buttons & SCE_CTRL_LTRIGGER)
 			cur |= VBTN_SLEFT;
-		if ((pad.buttons & SCE_CTRL_RTRIGGER) || lx > deadzone)
+		if (pad.buttons & SCE_CTRL_RTRIGGER)
 			cur |= VBTN_SRIGHT;
 		if (pad.buttons & SCE_CTRL_CROSS)
 			cur |= VBTN_CROSS;

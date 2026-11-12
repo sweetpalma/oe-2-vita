@@ -194,7 +194,7 @@ void Text_readStringFromRes(Canvas *canvas, int group, int idx, String *outStr)
 		case 1: /* How to Play */
 			String_appendCStr_76f0(outStr,
 				"@HOW TO PLAY|"
-				"Use the Left Stick or D--Pad to move, and the Right Stick or D--Pad to turn. Use D--Pad to navigate menus. Press CROSS to talk, attack, and perform other actions.||"
+				"Use the Left Stick or D--Pad to move, turn, and navigate menus. Press CROSS to talk, attack, and perform other actions.||"
 				"@CONTROLS|"
 				"CROSS attack/talk/use|"
 				"SQUARE pass turn/skip|"
@@ -208,14 +208,12 @@ void Text_readStringFromRes(Canvas *canvas, int group, int idx, String *outStr)
 				"@HOW TO MOVE|"
 				"LEFT STICK / D--PAD:|"
 				"UP    move forward|"
-				"DOWN  move back||"
-				"RIGHT STICK / D--PAD:|"
+				"DOWN  move back|"
 				"LEFT  turn left|"
 				"RIGHT turn right||"
 				"L / R TRIGGERS:|"
 				"L TRIGGER  strafe left|"
-				"R TRIGGER  strafe right||"
-				"You can also strafe left and right with the Left Stick.");
+				"R TRIGGER  strafe right");
 			return;
 		case 3: /* How to Attack */
 			String_appendCStr_76f0(outStr,
