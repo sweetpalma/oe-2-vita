@@ -1,0 +1,9 @@
+.git/
+.DS_Store
+__pycache__/
+*.tmp
+build/
+data/
+dist/
+tools/vendor/
+

@@ -1,0 +1,9 @@
+services:
+  vita:
+    build: .
+    image: oe2-vita:latest
+    working_dir: /work
+    volumes:
+      - .:/work
+      - ./data:/data
+

@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include <libavcodec/avcodec.h>
+#include <libavutil/channel_layout.h>
 #include <libavutil/log.h>
 
 static unsigned be16(const uint8_t *p) { return (p[0] << 8) | p[1]; }
@@ -100,7 +101,16 @@ int Pmd_decode(const uint8_t *cmf, size_t len, int16_t **pcm, int *samples)
 	ctx = avcodec_alloc_context3(codec);
 	pkt = av_packet_alloc();
 	fr = av_frame_alloc();
-	if (!ctx || !pkt || !fr || avcodec_open2(ctx, codec, NULL) < 0)
+	if (!ctx || !pkt || !fr)
+		goto done;
+	ctx->sample_rate = 8000;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59, 24, 100)
+	av_channel_layout_default(&ctx->ch_layout, 1);
+#else
+	ctx->channels = 1;
+	ctx->channel_layout = AV_CH_LAYOUT_MONO;
+#endif
+	if (avcodec_open2(ctx, codec, NULL) < 0)
 		goto done;
 
 	/* FF E8 vv: wave-channel volume (channel in bits 7-6, 6-bit level), set per resource by the authors (52..63

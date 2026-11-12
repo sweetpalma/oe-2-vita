@@ -18,21 +18,29 @@ BUILD = BUILD_ROOT / "vita"
 STAGE = BUILD / "vpk"
 
 
+def resolve_data_dir() -> Path:
+    env = os.environ.get("OE2_DATA_DIR")
+    return Path(env) if env else ROOT / "data"
+
+
+DATA_DIR = resolve_data_dir()
+
+
 def verify_data():
     expected = {
         "orcsandelves2.bar": "508aa62a368cc77c64113a68c5485f43871bf18fa819a58ae8e3aac085265c2f",
         "orcsandelves2.mod": "1b8664e937ef8c43c474dff9b82c398b46425c5cca43eff5919e4ce96fc3d750",
     }
     for name, sha in expected.items():
-        path = ROOT / "data" / name
+        path = DATA_DIR / name
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
-            raise RuntimeError(f"Missing or invalid data/{name} (expected BREW 7.0.41)")
+            raise RuntimeError(f"Missing or invalid {path} (expected BREW 7.0.41)")
 
 
 def ensure_audio():
-    audio_dir = ROOT / "data/audio"
+    audio_dir = DATA_DIR / "audio"
     if not audio_dir.is_dir() or not any(audio_dir.glob("*.pcm")):
-        build_audio(ROOT / "data/orcsandelves2.bar", audio_dir)
+        build_audio(DATA_DIR / "orcsandelves2.bar", audio_dir)
     if not audio_dir.is_dir() or not any(audio_dir.glob("*.pcm")):
         raise RuntimeError(f"No PCM audio files found in {audio_dir}")
 
@@ -108,7 +116,7 @@ def write_png8(path: Path, w: int, h: int, rgb_rows):
 
 
 def build_livearea_assets():
-    bar_bytes = (ROOT / "data/orcsandelves2.bar").read_bytes()
+    bar_bytes = (DATA_DIR / "orcsandelves2.bar").read_bytes()
     raw_dir = BUILD / "raw_bmp"
     raw_dir.mkdir(parents=True, exist_ok=True)
     bmp_3034 = extract_bar_resource(bar_bytes, 3034)
@@ -161,6 +169,15 @@ def build_livearea_assets():
 </livearea>
 """
     (STAGE / "sce_sys/livearea/contents/template.xml").write_text(template_xml, encoding="utf-8")
+
+
+def sdl2_libs() -> list[str]:
+    pc = VITASDK / "arm-vita-eabi/lib/pkgconfig/sdl2.pc"
+    if pc.is_file():
+        for line in pc.read_text(encoding="utf-8").splitlines():
+            if line.startswith("Libs:"):
+                return [tok for tok in line.split()[1:] if tok.startswith("-l")]
+    return ["-lSDL2"]
 
 
 def build_vita_elf():
@@ -225,11 +242,10 @@ def build_vita_elf():
         )
         objects.append(obj)
 
-    libs = [
-        "-lSDL2",
-        "-lz",
-        "-lm",
-        "-lpthread",
+    libs = [*sdl2_libs(), "-lz", "-lm", "-lpthread"]
+    if "-lvitaGL" in libs:
+        libs.append("-lstdc++")
+    for stub in (
         "-lSceDisplay_stub",
         "-lSceCtrl_stub",
         "-lSceAudio_stub",
@@ -243,7 +259,9 @@ def build_vita_elf():
         "-lSceMotion_stub",
         "-lScePower_stub",
         "-lSceProcessmgr_stub",
-    ]
+    ):
+        if stub not in libs:
+            libs.append(stub)
 
     subprocess.run([str(gcc), "-Wl,-q", *map(str, objects), *libs, "-o", str(elf_path)], check=True)
     subprocess.run([str(elf_create), str(elf_path), str(velf_path)], check=True)
@@ -264,8 +282,8 @@ def build_vita_elf():
     stage_data = STAGE / "data"
     stage_data.mkdir(parents=True, exist_ok=True)
     for name in ("orcsandelves2.bar", "orcsandelves2.mod"):
-        shutil.copy2(ROOT / "data" / name, stage_data / name)
-    shutil.copytree(ROOT / "data/audio", stage_data / "audio", dirs_exist_ok=True)
+        shutil.copy2(DATA_DIR / name, stage_data / name)
+    shutil.copytree(DATA_DIR / "audio", stage_data / "audio", dirs_exist_ok=True)
 
     BUILD_ROOT.mkdir(parents=True, exist_ok=True)
     vpk_path = BUILD_ROOT / "Orcs and Elves II.vpk"

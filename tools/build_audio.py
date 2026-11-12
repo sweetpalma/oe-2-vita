@@ -7,13 +7,15 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BAR_EXPECTED_SHA256 = "508aa62a368cc77c64113a68c5485f43871bf18fa819a58ae8e3aac085265c2f"
 
 
 def default_data_dir() -> Path:
-    return ROOT / "data"
+    env = os.environ.get("OE2_DATA_DIR")
+    return Path(env) if env else ROOT / "data"
 
 
 def host_deps_flags() -> tuple[list[str], list[str]]:
@@ -52,7 +54,7 @@ def ensure_oe2tool() -> Path:
         ROOT / "engine/src/pmd.h",
         ROOT / "engine/src/moddata.h",
     ]
-    tool_path = ROOT / "build/host/oe2tool"
+    tool_path = ROOT / "build/host" / f"{sys.platform}-{os.uname().machine}" / "oe2tool"
     newest_src = max(p.stat().st_mtime for p in (*sources, *headers))
     if tool_path.is_file() and tool_path.stat().st_mtime >= newest_src:
         return tool_path
