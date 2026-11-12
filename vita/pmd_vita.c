@@ -21,7 +21,7 @@ int Pmd_decode(const uint8_t *cmf, size_t len, int16_t **pcm, int *samples)
 	*samples = 0;
 	for (size_t i = 0; i < sizeof(prefixes) / sizeof(prefixes[0]); i++) {
 		char path[512];
-		snprintf(path, sizeof(path), "%s/%08lx-%zu.pcm", prefixes[i], crc, len);
+		snprintf(path, sizeof(path), "%s/%08lx-%lu.pcm", prefixes[i], crc, (unsigned long)len);
 		f = fopen(path, "rb");
 		if (f)
 			break;
