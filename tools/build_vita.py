@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build Orcs & Elves II for PS Vita (.vpk) with Classic + Remastered lighting."""
 from pathlib import Path
+import gzip
 import hashlib
 import os
 import shutil
@@ -8,22 +9,55 @@ import struct
 import subprocess
 import zlib
 
+from build_audio import build_audio
+
 ROOT = Path(__file__).resolve().parents[1]
 VITASDK = Path(os.environ.get("VITASDK", str(ROOT / "tools/vendor/vitasdk")))
-BUILD = ROOT / "build/vita"
+BUILD_ROOT = ROOT / "build"
+BUILD = BUILD_ROOT / "vita"
 STAGE = BUILD / "vpk"
-DIST = ROOT / "dist"
 
 
-def verify_gamedata():
+def verify_data():
     expected = {
         "orcsandelves2.bar": "508aa62a368cc77c64113a68c5485f43871bf18fa819a58ae8e3aac085265c2f",
         "orcsandelves2.mod": "1b8664e937ef8c43c474dff9b82c398b46425c5cca43eff5919e4ce96fc3d750",
     }
     for name, sha in expected.items():
-        path = ROOT / "gamedata" / name
+        path = ROOT / "data" / name
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
-            raise RuntimeError(f"Missing or invalid gamedata/{name} (expected BREW 7.0.41)")
+            raise RuntimeError(f"Missing or invalid data/{name} (expected BREW 7.0.41)")
+
+
+def ensure_audio():
+    audio_dir = ROOT / "data/audio"
+    if not audio_dir.is_dir() or not any(audio_dir.glob("*.pcm")):
+        build_audio(ROOT / "data/orcsandelves2.bar", audio_dir)
+    if not audio_dir.is_dir() or not any(audio_dir.glob("*.pcm")):
+        raise RuntimeError(f"No PCM audio files found in {audio_dir}")
+
+
+def extract_bar_resource(bar_bytes: bytes, target_id: int) -> bytes:
+    ntypes = struct.unpack_from("<H", bar_bytes, 0x06)[0]
+    typedir, _, tbl, _, tblend = struct.unpack_from("<IIIII", bar_bytes, 0x08)
+    nent = (tblend - tbl) // 4
+    for k in range(ntypes):
+        rtype, first, span, idx = struct.unpack_from("<HHHH", bar_bytes, typedir + k * 8)
+        if rtype != 6:
+            continue
+        for j in range(span + 1):
+            if idx + j >= nent:
+                break
+            if first + j != target_id:
+                continue
+            o = struct.unpack_from("<I", bar_bytes, tbl + 4 * (idx + j))[0]
+            e = struct.unpack_from("<I", bar_bytes, tbl + 4 * (idx + j + 1))[0] if idx + j + 1 < nent else len(bar_bytes)
+            hl = struct.unpack_from("<H", bar_bytes, o)[0]
+            payload = bar_bytes[o + hl : e]
+            if len(payload) >= 18 and payload[:2] == b"\x1f\x8b":
+                return gzip.decompress(payload)
+            return payload
+    raise RuntimeError(f"Resource {target_id} not found in orcsandelves2.bar")
 
 
 def read_bmp8(data: bytes):
@@ -74,16 +108,15 @@ def write_png8(path: Path, w: int, h: int, rgb_rows):
 
 
 def build_livearea_assets():
-    oe2tool = ROOT / "build/native/src/oe2tool"
+    bar_bytes = (ROOT / "data/orcsandelves2.bar").read_bytes()
     raw_dir = BUILD / "raw_bmp"
     raw_dir.mkdir(parents=True, exist_ok=True)
-    for rid in (3034, 3037):
-        subprocess.run(
-            [str(oe2tool), "extract", str(ROOT / "gamedata/orcsandelves2.bar"), str(rid), str(raw_dir / f"{rid}.bmp")],
-            check=True,
-        )
-    map_w, map_h, map_rows = read_bmp8((raw_dir / "3034.bmp").read_bytes())
-    logo_w, logo_h, logo_rows = read_bmp8((raw_dir / "3037.bmp").read_bytes())
+    bmp_3034 = extract_bar_resource(bar_bytes, 3034)
+    bmp_3037 = extract_bar_resource(bar_bytes, 3037)
+    (raw_dir / "3034.bmp").write_bytes(bmp_3034)
+    (raw_dir / "3037.bmp").write_bytes(bmp_3037)
+    map_w, map_h, map_rows = read_bmp8(bmp_3034)
+    logo_w, logo_h, logo_rows = read_bmp8(bmp_3037)
 
     def render_canvas(cw: int, ch: int, logo_scale: int):
         rows = []
@@ -152,7 +185,7 @@ def build_vita_elf():
     fast_math_sources = [
         ROOT / "host/lighting.c",
         ROOT / "host/presentation.c",
-        ROOT / "vita/standalone_bridge.c",
+        ROOT / "host/standalone_bridge.c",
     ]
 
     elf_path = BUILD / "oe2.elf"
@@ -171,7 +204,6 @@ def build_vita_elf():
         "-ftree-vectorize",
         "-fwrapv",
         "-funsigned-char",
-        "-DOE2_WEB_BRIDGE",
         "-DOE2_STANDALONE_BRIDGE",
         "-DOE2_NO_SPRITE_SHADOWS",
         "-I" + str(ROOT / "engine/src"),
@@ -229,18 +261,18 @@ def build_vita_elf():
         check=True,
     )
 
-    stage_data = STAGE / "gamedata"
+    stage_data = STAGE / "data"
     stage_data.mkdir(parents=True, exist_ok=True)
     for name in ("orcsandelves2.bar", "orcsandelves2.mod"):
-        shutil.copy2(ROOT / "gamedata" / name, stage_data / name)
-    shutil.copytree(ROOT / "gamedata/audio", stage_data / "audio", dirs_exist_ok=True)
+        shutil.copy2(ROOT / "data" / name, stage_data / name)
+    shutil.copytree(ROOT / "data/audio", stage_data / "audio", dirs_exist_ok=True)
 
-    DIST.mkdir(parents=True, exist_ok=True)
-    vpk_path = DIST / "Orcs-Elves-II-Vita.vpk"
+    BUILD_ROOT.mkdir(parents=True, exist_ok=True)
+    vpk_path = BUILD_ROOT / "Orcs and Elves II.vpk"
     if vpk_path.exists():
         vpk_path.unlink()
     subprocess.run([str(pack_vpk), "-s", str(sfo_path), "-b", str(eboot_path), str(vpk_path)], cwd=STAGE, check=True)
-    # Re-pack with all staged assets (sce_sys/icon0.png, livearea, and gamedata/*).
+    # Re-pack with all staged assets (sce_sys/icon0.png, livearea, and data/*).
     import zipfile
 
     with zipfile.ZipFile(vpk_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -252,7 +284,8 @@ def build_vita_elf():
 
 
 def main():
-    verify_gamedata()
+    verify_data()
+    ensure_audio()
     if STAGE.exists():
         shutil.rmtree(STAGE)
     (STAGE / "sce_sys/livearea/contents").mkdir(parents=True, exist_ok=True)

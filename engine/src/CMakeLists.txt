@@ -12,16 +12,15 @@ add_executable(oe2
 	platform_sdl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/../../host/lighting.c
 	${CMAKE_CURRENT_SOURCE_DIR}/../../host/presentation.c
-	${CMAKE_CURRENT_SOURCE_DIR}/../../vita/standalone_bridge.c
+	${CMAKE_CURRENT_SOURCE_DIR}/../../host/standalone_bridge.c
 	${OE2_GAME_SOURCES}
 )
 target_include_directories(oe2 PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}/game
 	${CMAKE_CURRENT_SOURCE_DIR}/../../host
-	${CMAKE_CURRENT_SOURCE_DIR}/../../vita
 )
-target_compile_definitions(oe2 PRIVATE OE2_WEB_BRIDGE OE2_STANDALONE_BRIDGE OE2_NO_SPRITE_SHADOWS)
+target_compile_definitions(oe2 PRIVATE OE2_STANDALONE_BRIDGE OE2_NO_SPRITE_SHADOWS)
 target_link_libraries(oe2 PRIVATE oe2core PkgConfig::SDL2 m)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 	# The original is ARM code: two's-complement wraparound in its fixed-point math (-fwrapv), and plain

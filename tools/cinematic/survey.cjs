@@ -1,2 +1,0 @@
-const fs=require('node:fs'),path=require('node:path');const {boot}=require('./common.cjs');
-(async()=>{const game=await boot();const survey=JSON.parse(game.core.UTF8ToString(game.core._oe2_film_survey()));survey.player=game.model();fs.writeFileSync(path.join(game.out,'survey.json'),JSON.stringify(survey,null,2));console.log(JSON.stringify({player:{x:survey.player.x,y:survey.player.y,angle:survey.player.angle},sprites:survey.sprites.filter(s=>s.name||[116,130,136,150,181,234].includes(s.tile))},null,2));})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -2,57 +2,24 @@
 
 ## Game data
 
-Orcs & Elves II, BREW English release 7.0.41, id Software / Fountainhead Entertainment / Electronic Arts.
-Retrieved from https://www.myabandonware.com/game/orcs-elves-ii-vvv#BREW on 2026-11-04.
+Orcs & Elves II, BREW English release 7.0.41, id Software / Fountainhead Entertainment / Electronic Arts. Retrieved from https://www.myabandonware.com/game/orcs-elves-ii-vvv#BREW on 2026-11-04.
 
 Original files are local inputs, excluded from Git:
 
-| File | Bytes | CRC32 | SHA-256 |
-|---|---:|---|---|
-| orcsandelves2.mod | 292116 | 1631c7f1 | 1b8664e937ef8c43c474dff9b82c398b46425c5cca43eff5919e4ce96fc3d750 |
+| File              |   Bytes | CRC32    | SHA-256                                                          |
+| ----------------- | ------: | -------- | ---------------------------------------------------------------- |
+| orcsandelves2.mod |  292116 | 1631c7f1 | 1b8664e937ef8c43c474dff9b82c398b46425c5cca43eff5919e4ce96fc3d750 |
 | orcsandelves2.bar | 2130702 | ad370c54 | 508aa62a368cc77c64113a68c5485f43871bf18fa819a58ae8e3aac085265c2f |
 
-The MOD matches the exact size and CRC expected by moddata.h. The ARM executable is read for tables and strings; gameplay executes the reconstructed C code.
-
-## Engine
+## Original Engine
 
 Public source: https://github.com/new-thegrex-source/OEII_BREW_SymbianPort
 Pinned revision: 2e9c7bfb79694ffbd8e648513edd229ee212c10a.
 Engine reconstruction credited upstream to George Gorzhiyev (ygorz/oe2-re).
 GPLv3 is preserved in engine/LICENSE. The public fork includes an SDL desktop host in addition to the Symbian host.
 
-Our additions: browser host, WebAssembly build, audio conversion from BREW resources, UI state adapter, cinematic capture fixes, integration with our existing Godot UI, original-texture catalog and a presentation-only point-light/geometric ray-shadow pass. Later presentation additions include projectile-arrival flashes, the original padlock indicator in our custom modal, original timed-modifier icons (BAR resource 3030) and native turn counters, persisted diagnostics and a local offline Android WebView test shell. The native lock rules and projectile damage/lifetimes are preserved.
+## Remastered Fork
 
-Upstream claims full original-engine reconstruction. Our own validation is recorded separately in PROGRESS.md.
-
-## UI
-
-Our prepared stone/bronze UI, vector icons, HUD, dialogs, map and touch controls are reused from the previous project. Its game runtime and game resources are not part of this project.
-
-## Build tools
-
-Emscripten SDK: https://github.com/emscripten-core/emsdk (local, ignored).
-Godot: https://godotengine.org/ (installed desktop editor and official Web export template).
-
-## Russian presentation
-
-The complete BREW 7.0.41 string catalog has a separate Russian presentation translation in localization/ru. Original English strings and game rules remain unchanged in the core. The checked-in ui/locales/ru.json is built from those translations and the supported English catalog. Intro/ending text masks have separate Cyrillic SVG resources; the original parchment illustration and travel map art remain intact.
-
-Text-mask glyph outlines use Noto Serif Bold by the Noto Project Authors, obtained from the bundled LibreOffice font installation. Its SIL Open Font License and copyright notice are preserved in localization/FONT_LICENSE.txt. The optional regeneration tool uses fontTools 4.68; generated SVG resources are checked in, so ordinary UI builds do not require fontTools or the local font file.
-
-
-## Native menu and conversation artwork
-
-The build decodes original BREW BAR 3029 for item icons, 3031 for equipped-ring icons, 3021/3028 for the player/wand conversation images, 3007 for notice icons, and the original palette/mapping/bitshape/texel resources 1003–1006 for character sprite closeups. The helpers preserve RGB565 colors and native transparency. These derived atlases remain ignored build assets; no generated HD replacement art was introduced. Wall candle identities 61/69 were matched to the decoded original 117×117 materials and native world geometry.
-
-
-## Dense-light rendering references — 2026-11-06
-
-Original local implementation in `host/lighting.c`; no third-party lighting code
-or new library dependency was added. Design references consulted:
-
-- [Godot, lights and shadows](https://docs.godotengine.org/en/stable/tutorials/3d/lights_and_shadows.html): caching unchanged shadow-atlas entries and invalidating affected light/object work.
-- [AMD GPUOpen, TiledLighting11](https://gpuopen.com/learn/tiledlighting11-directx-11-sdk-sample/): spatial light lists in Forward+/Tiled Deferred rendering; research reference, not the rendering pipeline of this port.
-- [PBRT 4e, Media §11.4.3](https://www.pbr-book.org/4ed/Volume_Scattering/Media): DDA traversal of regular grid cells. Our broad phase indexes existing native wall segments and retains the previous exact intersection test.
-
-Local measurements and approximation limits are recorded in `docs/LIGHTING.md`.
+Public source: https://github.com/PilotOfAsuka/orcs-elves-ii-remastered
+Original author: PilotOfAsuka.
+Adds the Remastered software lighting renderer (`host/lighting.c`, `host/presentation.c`), and BREW CMF/QCELP decoding pipeline on top of the BREW engine reconstruction.

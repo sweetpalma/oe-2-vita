@@ -20,10 +20,11 @@
 
 #define MOD_STORE_TABLE                                                        \
   0x464a0u /* 37 x {u32 itemType, u32 itemIndex, u32 price, u32 quantity} */
-#define MOD_STR_CHECK 0x46744u    /* "\x87": check mark (equipped) */
-#define MOD_STR_DOT 0x46748u      /* "\x80": dot glyph */
-#define MOD_STR_BAD_MENU 0x4674cu /* fatal error text for an unknown menu id   \
-                                   */
+#define MOD_STR_CHECK 0x46744u /* "\x87": check mark (equipped) */
+#define MOD_STR_DOT 0x46748u   /* "\x80": dot glyph */
+#define MOD_STR_BAD_MENU                                                       \
+  0x4674cu /* fatal error text for an unknown menu id                          \
+            */
 
 enum { TEXT_GROUP_MENU = 3 };
 #define ITEM_NO_ICON 0x7f
@@ -544,9 +545,6 @@ static void buildDetails(Menu *menu, MenuSystem *ms) {
   Applet *app = g_app;
   EntityDef *def;
   String *desc = NULL;
-#ifdef OE2_WEB_BRIDGE
-  OE2_captureDetails(NULL);
-#endif
 
   ms->type = 7;
   MenuSystem_setItemsFromText(ms, 0, &menu->detailsText2);
@@ -571,9 +569,6 @@ static void buildDetails(Menu *menu, MenuSystem *ms) {
     desc = Combat_getArmorDescription(app->combat, -1);
   }
   if (desc != NULL) {
-#ifdef OE2_WEB_BRIDGE
-    OE2_captureDetails(desc);
-#endif
     String_assign(&text, desc);
     MenuSystem_setItemsFromText(ms, ms->numItems, &text);
   }
