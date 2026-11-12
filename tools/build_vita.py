@@ -89,21 +89,50 @@ def read_bmp8(data: bytes):
 
 
 def write_png8(path: Path, w: int, h: int, rgb_rows):
-    # Quantize to a 3-3-2 RGB palette (256 colors) so LiveArea always receives an 8-bit indexed PNG.
+    # Build an exact 256-color palette when possible, falling back to median-cut quantization.
+    counts = {}
+    for row in rgb_rows:
+        for px in row:
+            counts[px] = counts.get(px, 0) + 1
+    if len(counts) <= 256:
+        palette = list(counts.keys())
+        lut = {c: i for i, c in enumerate(palette)}
+    else:
+        buckets = [list(counts.keys())]
+        while len(buckets) < 256:
+            buckets.sort(key=lambda b: max(max(c[k] for c in b) - min(c[k] for c in b) for k in range(3)) if len(b) > 1 else -1, reverse=True)
+            top = buckets[0]
+            if len(top) <= 1:
+                break
+            ch = max(range(3), key=lambda k: max(c[k] for c in top) - min(c[k] for c in top))
+            top.sort(key=lambda c: c[ch])
+            mid = len(top) // 2
+            buckets = buckets[1:] + [top[:mid], top[mid:]]
+        palette = []
+        for b in buckets:
+            tot = sum(counts[c] for c in b)
+            palette.append((
+                sum(c[0] * counts[c] for c in b) // tot,
+                sum(c[1] * counts[c] for c in b) // tot,
+                sum(c[2] * counts[c] for c in b) // tot,
+            ))
+        lut = {}
+        for c in counts:
+            r, g, b = c
+            lut[c] = min(range(len(palette)), key=lambda i: (palette[i][0] - r) ** 2 + (palette[i][1] - g) ** 2 + (palette[i][2] - b) ** 2)
+
     plte = bytearray()
-    for i in range(256):
-        r = ((i >> 5) & 7) * 255 // 7
-        g = ((i >> 2) & 7) * 255 // 7
-        b = (i & 3) * 255 // 3
+    for r, g, b in palette:
         plte.extend((r, g, b))
+    if len(palette) < 256:
+        plte.extend(b"\x00\x00\x00" * (256 - len(palette)))
+
     raw = bytearray()
     for y in range(h):
         raw.append(0)  # Filter type 0 (None)
         row = rgb_rows[y]
         for x in range(w):
-            r, g, b = row[x]
-            idx = ((r * 7 + 127) // 255 << 5) | ((g * 7 + 127) // 255 << 2) | ((b * 3 + 127) // 255)
-            raw.append(idx)
+            raw.append(lut[row[x]])
 
     def chunk(tag: bytes, payload: bytes) -> bytes:
         crc = zlib.crc32(tag + payload) & 0xFFFFFFFF
@@ -126,16 +155,23 @@ def build_livearea_assets():
     map_w, map_h, map_rows = read_bmp8(bmp_3034)
     logo_w, logo_h, logo_rows = read_bmp8(bmp_3037)
 
-    def render_canvas(cw: int, ch: int, logo_scale: int):
+    def render_canvas(cw: int, ch: int, logo_scale: int, draw_logo: bool = True):
+        crop_h = min(map_h, max(1, round(map_w * ch / cw)))
+        crop_y = max(0, min(map_h - crop_h, 255 - crop_h // 2))
         rows = []
         for y in range(ch):
-            sy = (y * map_h // ch) % map_h
+            sy = crop_y + (y * crop_h // ch)
             row = []
             for x in range(cw):
-                sx = (x * map_w // cw) % map_w
+                sx = x * map_w // cw
                 r, g, b = map_rows[sy][sx]
-                row.append((r * 3 // 5, g * 3 // 5, b * 3 // 5))
+                if draw_logo:
+                    row.append((r * 3 // 5, g * 3 // 5, b * 3 // 5))
+                else:
+                    row.append((r, g, b))
             rows.append(row)
+        if not draw_logo:
+            return rows
         lw, lh = logo_w * logo_scale, logo_h * logo_scale
         ox = (cw - lw) // 2
         oy = (ch - lh) // 2
@@ -154,8 +190,60 @@ def build_livearea_assets():
                 rows[dy][dx] = (lr, lg, lb)
         return rows
 
+    def draw_label(rows, cw: int, ch: int, text: str, scale: int = 2):
+        font = {
+            "A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+            "O": ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+            "P": ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+            "S": ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+            "a": ["00000", "00000", "01110", "00001", "01111", "10001", "01111"],
+            "b": ["10000", "10000", "10110", "11001", "10001", "10001", "11110"],
+            "d": ["00001", "00001", "01101", "10011", "10001", "10001", "01111"],
+            "e": ["00000", "00000", "01110", "10001", "11111", "10000", "01110"],
+            "f": ["00110", "01001", "01000", "11100", "01000", "01000", "01000"],
+            "g": ["00000", "00000", "01111", "10001", "01111", "00001", "01110"],
+            "h": ["10000", "10000", "10110", "11001", "10001", "10001", "10001"],
+            "i": ["00100", "00000", "01100", "00100", "00100", "00100", "01110"],
+            "k": ["10000", "10000", "10010", "10100", "11000", "10100", "10010"],
+            "l": ["01100", "00100", "00100", "00100", "00100", "00100", "01110"],
+            "m": ["00000", "00000", "11010", "10101", "10101", "10001", "10001"],
+            "n": ["00000", "00000", "10110", "11001", "10001", "10001", "10001"],
+            "o": ["00000", "00000", "01110", "10001", "10001", "10001", "01110"],
+            "r": ["00000", "00000", "10110", "11001", "10000", "10000", "10000"],
+            "s": ["00000", "00000", "01111", "10000", "01110", "00001", "11110"],
+            "t": ["01000", "01000", "11100", "01000", "01000", "01001", "00110"],
+            "u": ["00000", "00000", "10001", "10001", "10001", "10011", "01101"],
+            "w": ["00000", "00000", "10001", "10001", "10101", "10101", "01010"],
+            "y": ["00000", "00000", "10001", "10001", "01111", "00001", "01110"],
+            ",": ["00000", "00000", "00000", "00000", "00000", "00100", "01000"],
+            " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
+        }
+        adv = 6 * scale
+        tw = len(text) * adv - scale
+        ox = (cw - tw) // 2
+        oy = ch - 7 * scale - 22
+        for pass_idx, (dx_off, dy_off, col) in enumerate(((scale, scale, (16, 14, 12)), (0, 0, (245, 240, 225)))):
+            for idx, ch_c in enumerate(text):
+                glyph = font.get(ch_c, font[" "])
+                gx = ox + idx * adv + dx_off
+                for gy_i, row_bits in enumerate(glyph):
+                    for gx_i, bit in enumerate(row_bits):
+                        if bit != "1":
+                            continue
+                        for sy_i in range(scale):
+                            py = oy + dy_off + gy_i * scale + sy_i
+                            if not (0 <= py < ch):
+                                continue
+                            for sx_i in range(scale):
+                                px = gx + gx_i * scale + sx_i
+                                if 0 <= px < cw:
+                                    rows[py][px] = col
+
+    bg_rows = render_canvas(840, 500, 4, draw_logo=False)
+    draw_label(bg_rows, 840, 480, "Ported by SweetPalma, lighting by PilotOfAsuka", scale=2)
+
     write_png8(STAGE / "sce_sys/icon0.png", 128, 128, render_canvas(128, 128, 1))
-    write_png8(STAGE / "sce_sys/livearea/contents/bg.png", 840, 500, render_canvas(840, 500, 4))
+    write_png8(STAGE / "sce_sys/livearea/contents/bg.png", 840, 500, bg_rows)
     write_png8(STAGE / "sce_sys/livearea/contents/startup.png", 280, 158, render_canvas(280, 158, 2))
 
     template_xml = """<?xml version="1.0" encoding="utf-8"?>
