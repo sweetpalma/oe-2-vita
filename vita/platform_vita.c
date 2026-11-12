@@ -377,12 +377,14 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count) {
                                        VBTN_RIGHT,  VBTN_SLEFT,  VBTN_SRIGHT,
                                        VBTN_CROSS,  VBTN_CIRCLE, VBTN_TRIANGLE,
                                        VBTN_SQUARE, VBTN_START,  VBTN_SELECT};
+    static int pressedAvk[sizeof(tracked) / sizeof(tracked[0])];
     for (size_t i = 0; i < sizeof(tracked) / sizeof(tracked[0]) && n < max;
          i++) {
       uint32_t b = tracked[i];
       if (!(changed & b))
         continue;
       int down = (cur & b) != 0;
+      int avk = 0;
       if (down) {
         if (b == VBTN_UP && adjust_merchant_offer(1))
           continue;
@@ -392,8 +394,12 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count) {
           continue;
         if (b == VBTN_RIGHT && adjust_merchant_offer(10))
           continue;
+        avk = map_vita_button(b, pad.buttons);
+        pressedAvk[i] = avk;
+      } else {
+        avk = pressedAvk[i];
+        pressedAvk[i] = 0;
       }
-      int avk = map_vita_button(b, pad.buttons);
       if (avk) {
         ev[n].avk = avk;
         ev[n].down = down;
