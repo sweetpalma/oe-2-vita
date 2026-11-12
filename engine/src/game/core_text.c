@@ -76,6 +76,52 @@ int Text_loadStringGroup(Canvas *canvas, int group)
  * "\%" to '%' and "\n" to a newline. */
 void Text_getString(Canvas *canvas, int group, int idx, String *out)
 {
+#ifdef OE2_STANDALONE_BRIDGE
+	if (group == 3 && idx == 0x47) {
+		String_appendCStr_76f0(out, "Help");
+		return;
+	}
+	if (group == 0) {
+		switch (idx) {
+		case 0:
+			String_appendCStr_76f0(out, "TALK\nPress CROSS to talk to characters with chat bubbles.");
+			return;
+		case 2:
+			String_appendCStr_76f0(out, "LOCK PICKING\nPress each D--Pad direction until you discover which tumbler fits the lock. Once you find it, press the same direction to set the tumbler.");
+			return;
+		case 6:
+			String_appendCStr_76f0(out, "NOTE\nNote added to your Quest Log. Open menu (START) then select Quest Log to review notes.");
+			return;
+		case 8:
+			String_appendCStr_76f0(out, "DOOR\nPress CROSS to open a door. Some doors must be unlocked before you can open them.");
+			return;
+		case 15:
+			String_appendCStr_76f0(out, "WEAPON SELECTION\nUse TRIANGLE to cycle weapons, or press START then select \"Inventory\".");
+			return;
+		case 34:
+			String_appendCStr_76f0(out, "To use, press START then select \"Inventory\".");
+			return;
+		case 35:
+			String_appendCStr_76f0(out, "To use, press START then select \"Inventory\" then \"Other\".");
+			return;
+		case 36:
+			String_appendCStr_76f0(out, "Use TRIANGLE to cycle weapons, or press START then select \"Inventory\".");
+			return;
+		case 37:
+			String_appendCStr_76f0(out, "To wear, press START then select \"Inventory\".");
+			return;
+		case 0xaa:
+			String_appendCStr_76f0(out, "Press CROSS");
+			return;
+		case 195:
+			String_appendCStr_76f0(out, "Health restored.\nTo see your stats press START then select \"Status\".");
+			return;
+		}
+	} else if ((group == 6 && idx == 107) || (group == 10 && idx == 52)) {
+		String_appendCStr_76f0(out, "REMINDER\nSave your game progress at any time by opening the menu (START) and selecting \"Save Game\".");
+		return;
+	}
+#endif
 	const char *text = canvas->strData[group];
 	int16_t pos;
 	char c;
@@ -142,6 +188,54 @@ int Text_findString(Canvas *canvas, int group, String *str)
  * without loading the group (used for long help texts). */
 void Text_readStringFromRes(Canvas *canvas, int group, int idx, String *outStr)
 {
+#ifdef OE2_STANDALONE_BRIDGE
+	if (group == 2 /* TEXT_GROUP_HELP */) {
+		switch (idx) {
+		case 1: /* How to Play */
+			String_appendCStr_76f0(outStr,
+				"@HOW TO PLAY|"
+				"Use the Left Stick or D--Pad to move, and the Right Stick or D--Pad to turn. Use D--Pad to navigate menus. Press CROSS to talk, attack, and perform other actions.||"
+				"@CONTROLS|"
+				"CROSS attack/talk/use|"
+				"SQUARE pass turn/skip|"
+				"SELECT view automap|"
+				"START open menu/pause|"
+				"CIRCLE back/cancel|"
+				"TRIANGLE next screen");
+			return;
+		case 2: /* How to Move */
+			String_appendCStr_76f0(outStr,
+				"@HOW TO MOVE|"
+				"LEFT STICK / D--PAD:|"
+				"UP    move forward|"
+				"DOWN  move back||"
+				"RIGHT STICK / D--PAD:|"
+				"LEFT  turn left|"
+				"RIGHT turn right||"
+				"L / R TRIGGERS:|"
+				"L TRIGGER  strafe left|"
+				"R TRIGGER  strafe right||"
+				"You can also strafe left and right with the Left Stick.");
+			return;
+		case 3: /* How to Attack */
+			String_appendCStr_76f0(outStr,
+				"@HOW TO ATTACK|"
+				"CROSS attack/talk/use|"
+				"TRIANGLE next weapon|"
+				"L+TRIANGLE prev weapon|"
+				"SQUARE pass turn/skip||"
+				"Hold L and press SQUARE for quick weapon selection.");
+			return;
+		case 7: /* Lock Picking */
+			String_appendCStr_76f0(outStr,
+				"@LOCK PICKING|"
+				"To initiate lock pick mode, face lock and press CROSS. Press UP, DOWN, LEFT, or RIGHT on the D--Pad to start setting the current tumbler. Press the same direction again to finish setting the tumbler. Continue till all tumblers are set.||"
+				"@LOCKED OBJECTS|"
+				"Throughout the game you will find locked treasure chests and doors that can be unlocked with your lock picks, a key, or a lever.");
+			return;
+		}
+	}
+#endif
 	Applet *app = g_app;
 	InputStream res;
 	IntArray groups;

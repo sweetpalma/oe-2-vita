@@ -99,8 +99,12 @@ int MenuSystem_startup(MenuSystem *ms)
 void MenuSystem_adjustPoints(MenuSystem *menu)
 {
 	Canvas *cv = g_app->canvas;
-	int halfW = (cv->viewRect[2] > 176 ? 176 : cv->viewRect[2]) / 2;
-	int halfH = (cv->viewRect[3] > 200 ? 200 : cv->viewRect[3]) / 2;
+	int dstW = cv->viewRect[2];
+	int dstH = cv->viewRect[3];
+	int srcW = dstW > 300 ? 300 : dstW;
+	int srcH = dstW > 300 ? (dstH * 300) / dstW : (dstH > 200 ? 200 : dstH);
+	int halfW = srcW / 2;
+	int halfH = srcH / 2;
 
 	for (int i = 0; i < menu->numBgKeys; i++) {
 		int32_t *k = &menu->bgKeys[i * 3];
@@ -758,10 +762,86 @@ void MenuSystem_scrollBackground(MenuSystem *ms)
 		y = 599;
 
 	Canvas *cv = app->canvas;
-	int w = cv->viewRect[2] > 176 ? 176 : cv->viewRect[2];
-	int h = cv->viewRect[3] > 200 ? 200 : cv->viewRect[3];
-	int mx = (cv->viewRect[2] - w) / 2;
-	int my = (cv->viewRect[3] - h) / 2;
+	int dstW = cv->viewRect[2];
+	int dstH = cv->viewRect[3];
+	int imgW = ms->imgMenuMap.width;
+	int imgH = ms->imgMenuMap.height;
+	if (dstW > imgW && imgW > 0 && imgH > 0 && ms->imgMenuMap.bitmap) {
+		/* Widescreen viewports exceed the 300px map width; zoom uniformly with 2x2 bilinear filtering. */
+		IBitmap *dst = g_app->deviceBitmap ? g_app->deviceBitmap : Brew_screen();
+		IBitmap *srcBmp = ms->imgMenuMap.bitmap;
+		if (!dst || !dst->px || !srcBmp->px)
+			return;
+		int srcH = (dstH * imgW) / dstW;
+		if (srcH <= 0)
+			srcH = 1;
+		int dx0 = cv->viewRect[0];
+		int dy0 = cv->viewRect[1];
+		int copyW = dstW;
+		int copyH = dstH;
+		int startCol = 0;
+		int startRow = 0;
+		if (dx0 < 0) {
+			startCol = -dx0;
+			copyW += dx0;
+			dx0 = 0;
+		}
+		if (dy0 < 0) {
+			startRow = -dy0;
+			copyH += dy0;
+			dy0 = 0;
+		}
+		if (dx0 + copyW > dst->width)
+			copyW = dst->width - dx0;
+		if (dy0 + copyH > dst->height)
+			copyH = dst->height - dy0;
+		if (copyW <= 0 || copyH <= 0)
+			return;
+
+		int32_t stepX = (imgW << 16) / dstW;
+		int32_t stepY = (srcH << 16) / dstH;
+		for (int dy = 0; dy < copyH; dy++) {
+			int32_t sy16 = ((int32_t)y << 16) + (startRow + dy) * stepY;
+			int sy0 = (sy16 >> 16) % imgH;
+			if (sy0 < 0)
+				sy0 += imgH;
+			int sy1 = sy0 + 1;
+			if (sy1 >= imgH)
+				sy1 = 0;
+			uint32_t fy = (uint32_t)((sy16 >> 8) & 0xff);
+			uint32_t fy0 = 256u - fy;
+			const uint16_t *row0 = srcBmp->px + sy0 * srcBmp->pitch;
+			const uint16_t *row1 = srcBmp->px + sy1 * srcBmp->pitch;
+			uint16_t *out = dst->px + (dy0 + dy) * dst->pitch + dx0;
+			int32_t sx16 = startCol * stepX;
+			for (int dx = 0; dx < copyW; dx++, sx16 += stepX) {
+				int sx0 = sx16 >> 16;
+				if (sx0 >= imgW)
+					sx0 = imgW - 1;
+				int sx1 = (sx0 + 1 < imgW) ? sx0 + 1 : sx0;
+				uint32_t fx = (uint32_t)((sx16 >> 8) & 0xff);
+				uint32_t fx0 = 256u - fx;
+				uint32_t w00 = fx0 * fy0;
+				uint32_t w10 = fx * fy0;
+				uint32_t w01 = fx0 * fy;
+				uint32_t w11 = fx * fy;
+				uint16_t c00 = row0[sx0];
+				uint16_t c10 = row0[sx1];
+				uint16_t c01 = row1[sx0];
+				uint16_t c11 = row1[sx1];
+				uint32_t r = ((c00 >> 11) * w00 + (c10 >> 11) * w10 + (c01 >> 11) * w01 + (c11 >> 11) * w11 + 32768u) >> 16;
+				uint32_t g = (((c00 >> 5) & 63u) * w00 + ((c10 >> 5) & 63u) * w10 + ((c01 >> 5) & 63u) * w01 + ((c11 >> 5) & 63u) * w11 + 32768u) >> 16;
+				uint32_t b = ((c00 & 31u) * w00 + (c10 & 31u) * w10 + (c01 & 31u) * w01 + (c11 & 31u) * w11 + 32768u) >> 16;
+				out[dx] = (uint16_t)((r << 11) | (g << 5) | b);
+			}
+		}
+		return;
+	}
+
+	int w = dstW;
+	int h = dstH > 200 ? 200 : dstH;
+	int mx = (dstW - w) / 2;
+	int my = (dstH - h) / 2;
 	int below = 600 - y;
 	if (below <= h) {
 		/* the part past the bottom edge comes from the top of the picture */
