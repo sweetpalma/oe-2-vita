@@ -1,6 +1,4 @@
-# Orcs & Elves II — PlayStation Vita
-
-PlayStation Vita port of **Orcs & Elves II**, based on the BREW 7.0.41 engine reconstruction.
+# Orcs & Elves II (PlayStation Vita Port)
 
 ![Orcs & Elves II on PlayStation Vita](screenshot.png)
 
@@ -12,7 +10,9 @@ PlayStation Vita port of **Orcs & Elves II**, based on the BREW 7.0.41 engine re
 
 ## Installation
 
-Download the [latest release](https://github.com/sweetpalma/oe-2-vita/releases), and install it to your Vita. That's it. Enjoy.
+- Download the [latest release](https://github.com/sweetpalma/oe-2-vita/releases).
+- Install the `.vpk` file to your Vita.
+- That's all!
 
 ## Controls
 
@@ -57,3 +57,9 @@ To build for PC locally (requires CMake and SDL2):
 ```sh
 python3 tools/build_pc.py
 ```
+
+## License
+
+This project is distributed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for the full license text, and [SOURCES.md](SOURCES.md) for upstream provenance and author credits.
+
+Original game assets (`orcsandelves2.bar` and `orcsandelves2.mod`) are the property of id Software and Fountainhead Entertainment and are not included in this repository.
