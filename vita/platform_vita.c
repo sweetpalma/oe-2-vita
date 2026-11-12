@@ -26,7 +26,6 @@ static SDL_Renderer *ren;
 static SDL_Texture *tex;
 static uint32_t *rgbaFrame;
 static int scrW, scrH;
-static int integerScale = 0;
 static char dataDir[1024] = "app0:data";
 static char saveDir[1024] = "ux0:data/oe2";
 static int virtClock;
@@ -239,10 +238,6 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count) {
           OE2_toggleRemastered();
           break;
         }
-        if (k == SDLK_F3) {
-          OE2_cycleLightRange();
-          break;
-        }
         if (k == SDLK_F11) {
           Uint32 fl = SDL_GetWindowFlags(win);
           SDL_SetWindowFullscreen(win, (fl & SDL_WINDOW_FULLSCREEN_DESKTOP)
@@ -353,25 +348,6 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count) {
       cur |= VBTN_SELECT;
 
     uint32_t changed = cur ^ prevButtons;
-    if ((changed & VBTN_SELECT) && (cur & VBTN_SELECT) &&
-        (pad.buttons & (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER))) {
-      if (pad.buttons & SCE_CTRL_LTRIGGER) {
-        OE2_cycleLightRange();
-      } else {
-        integerScale = !integerScale;
-        SDL_RenderSetIntegerScale(ren, integerScale ? SDL_TRUE : SDL_FALSE);
-      }
-      prevButtons = cur;
-      *count = n;
-      return keepGoing;
-    }
-    if ((changed & VBTN_START) && (cur & VBTN_START) &&
-        (pad.buttons & SCE_CTRL_RTRIGGER)) {
-      OE2_toggleFastTick();
-      prevButtons = cur;
-      *count = n;
-      return keepGoing;
-    }
 
     static const uint32_t tracked[] = {VBTN_UP,     VBTN_DOWN,   VBTN_LEFT,
                                        VBTN_RIGHT,  VBTN_SLEFT,  VBTN_SRIGHT,

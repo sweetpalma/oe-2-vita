@@ -12,9 +12,9 @@
 #include <time.h>
 
 static int remasteredMode = 1;
-static int rangeSteps = 5; /* 5 (Low default), 15 (Med), or 20 (High) steps */
+static const int rangeSteps = 5; /* Low lighting range */
 static int hostConfigLoaded = 0;
-static int fastTickMode = 0;
+static int fastTickMode = 1; /* 1 = Fast (16 ms), 0 = Slow (40 ms) */
 static uint32_t worldPixels[640 * 640];
 static uint32_t litPixels[640 * 640];
 static uint16_t lit565[640 * 640];
@@ -193,8 +193,10 @@ void OE2_loadHostConfig(void) {
     if (len >= 8 && data[0] == 'O' && data[1] == 'E' && data[2] == 'L' &&
         data[3] == 'C') {
       remasteredMode = data[4] ? 1 : 0;
-      if (data[5] == 5 || data[5] == 15 || data[5] == 20)
-        rangeSteps = data[5];
+      if (data[6] == 1)
+        fastTickMode = 1;
+      else if (data[6] == 2)
+        fastTickMode = 0;
     }
     free(data);
   }
@@ -215,7 +217,7 @@ void OE2_saveHostConfig(void) {
                     'C',
                     (uint8_t)(remasteredMode ? 1 : 0),
                     (uint8_t)rangeSteps,
-                    0,
+                    (uint8_t)(fastTickMode ? 1 : 2),
                     0};
   Plat_fileWrite("LightingCfg", buf, sizeof(buf));
 }
@@ -268,37 +270,22 @@ int OE2_toggleRemastered(void) {
   return remasteredMode;
 }
 
-void OE2_cycleLightRange(void) {
+int OE2_isFastTick(void) {
   ensure_host_config();
-  if (rangeSteps == 5) {
-    rangeSteps = 15;
-    toastText = "LIGHT: MED";
-  } else if (rangeSteps == 15) {
-    rangeSteps = 20;
-    toastText = "LIGHT: HIGH";
-  } else {
-    rangeSteps = 5;
-    toastText = "LIGHT: LOW";
-  }
-  lastFrameSig = 0;
-  toastFrames = 30;
-  BrewLight_setRange(rangeSteps);
-  OE2_saveHostConfig();
-}
-
-int OE2_getLightRangeSteps(void) {
-  ensure_host_config();
-  return rangeSteps;
-}
-
-int OE2_toggleFastTick(void) {
-  fastTickMode = !fastTickMode;
-  toastText = fastTickMode ? "SPEED: FAST" : "SPEED: ORIG";
-  toastFrames = 30;
   return fastTickMode;
 }
 
-int OE2_getTickMs(void) { return fastTickMode ? 16 : 40; }
+int OE2_toggleFastTick(void) {
+  ensure_host_config();
+  fastTickMode = !fastTickMode;
+  OE2_saveHostConfig();
+  return fastTickMode;
+}
+
+int OE2_getTickMs(void) {
+  ensure_host_config();
+  return fastTickMode ? 16 : 40;
+}
 
 /* Minimal 4x5 uppercase glyph table for the mode toggle toast. */
 static uint32_t glyph_bits(char c) {
