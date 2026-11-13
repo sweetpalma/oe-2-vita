@@ -334,9 +334,40 @@ void Canvas_shutdown(Canvas *canvas) {
 }
 
 /* 0x00024a80 Buffer a key press until the next tick (at most 4). */
-void Canvas_queueKey(Canvas *canvas, short key) {
-  if (canvas->numKeys != 4)
+void Canvas_queueKey(Canvas *canvas, short key, int isRepeat) {
+  int isMoving = (canvas->state == ST_PLAYING || canvas->state == ST_AUTOMAP) &&
+                 (canvas->viewX != canvas->destX || canvas->viewY != canvas->destY ||
+                  canvas->viewAngle != canvas->destAngle || canvas->moveCount != 0);
+
+  if (isMoving) {
+    if (isRepeat) {
+      /* While moving, keep at most one pending repeat; do not flood the queue */
+      if (canvas->numKeys > 0) {
+        canvas->keyQueue[0] = key;
+        canvas->keyIsRepeat[0] = 1;
+        canvas->numKeys = 1;
+        return;
+      }
+    } else {
+      /* New physical button press while moving: buffer this single latest intended move */
+      canvas->keyQueue[0] = key;
+      canvas->keyIsRepeat[0] = 0;
+      canvas->numKeys = 1;
+      return;
+    }
+  }
+
+  if (canvas->numKeys != 4) {
+    canvas->keyIsRepeat[canvas->numKeys] = (uint8_t)isRepeat;
     canvas->keyQueue[canvas->numKeys++] = key;
+  }
+}
+
+void Canvas_keyReleased(Canvas *canvas, short key) {
+  /* When releasing a held key, cancel any pending autorepeats so the character stops immediately */
+  if (canvas->numKeys > 0 && canvas->keyQueue[0] == key && canvas->keyIsRepeat[0]) {
+    canvas->numKeys = 0;
+  }
 }
 
 /* 0x000357a8 Replay the queued keys; a handler returning 0 keeps the rest. */
@@ -360,8 +391,10 @@ void Canvas_runInputEvents(Canvas *canvas) {
     if (!Canvas_handleEvent(canvas, (uint16_t)canvas->keyQueue[i]))
       break;
   }
-  for (n = 0; i < canvas->numKeys; i++, n++)
+  for (n = 0; i < canvas->numKeys; i++, n++) {
     canvas->keyQueue[n] = canvas->keyQueue[i];
+    canvas->keyIsRepeat[n] = canvas->keyIsRepeat[i];
+  }
   canvas->numKeys = n;
 }
 

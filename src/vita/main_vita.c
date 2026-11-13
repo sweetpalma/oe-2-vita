@@ -91,8 +91,10 @@ int main(int argc, char **argv) {
         Applet_HandleEvent(app, EVT_KEY, ev[i].avk, 0);
         heldKey = ev[i].avk;
         nextRepeat = Plat_uptimeMs() + KEY_REPEAT_START;
-      } else if (ev[i].avk == heldKey) {
-        heldKey = 0;
+      } else {
+        if (ev[i].avk == heldKey)
+          heldKey = 0;
+        Applet_HandleEvent(app, EVT_KEY_RELEASE, ev[i].avk, 0);
       }
     }
     if (heldKey && (int32_t)(Plat_uptimeMs() - nextRepeat) >= 0) {

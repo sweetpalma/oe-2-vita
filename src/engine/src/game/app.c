@@ -558,7 +558,10 @@ int Applet_HandleEvent(Applet *app, int evt, int wParam, int dwParam)
 		/* the timer stalled for over 3 s: restart it */
 		if ((uint32_t)((int32_t)GETUPTIMEMS() - app->time) > 3000)
 			timerArmed = 1;
-		Canvas_queueKey(app->canvas, (short)wParam);
+		Canvas_queueKey(app->canvas, (short)wParam, (dwParam & 0x40) != 0);
+		return 1;
+	case EVT_KEY_RELEASE:
+		Canvas_keyReleased(app->canvas, (short)wParam);
 		return 1;
 	case EVT_APP_START:
 		IDISPLAY_ClearScreen(MAKE_RGB(0, 0, 0));

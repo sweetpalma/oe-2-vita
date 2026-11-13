@@ -661,6 +661,7 @@ struct Canvas {
 	int32_t profiling;                             /* +0xc54 */
 	int32_t profileSums[4];                        /* +0xc58 */
 	int16_t keyQueue[4];                           /* +0xc68 */
+	uint8_t keyIsRepeat[4];
 	int32_t numKeys;                               /* +0xc70 */
 	int32_t travelStartTime;                       /* +0xc74 */
 	int32_t drawLoading;                           /* +0xc78 states 6/0xf: draw loading screen once; travel map (0xb): from-node */

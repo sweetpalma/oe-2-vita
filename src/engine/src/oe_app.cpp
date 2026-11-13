@@ -377,8 +377,10 @@ void COeAppUi::Tick()
 			Applet_HandleEvent(gApp, EVT_KEY, ev[i].avk, 0);
 			gHeldKey = ev[i].avk;
 			gNextRepeat = Plat_uptimeMs() + KRepeatStart;
-		} else if (ev[i].avk == gHeldKey) {
-			gHeldKey = 0;
+		} else {
+			if (ev[i].avk == gHeldKey)
+				gHeldKey = 0;
+			Applet_HandleEvent(gApp, EVT_KEY_RELEASE, ev[i].avk, 0);
 		}
 	}
 	if (gHeldKey && (TInt32)(Plat_uptimeMs() - gNextRepeat) >= 0) {

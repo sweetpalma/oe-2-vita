@@ -553,7 +553,8 @@ void Canvas_initCredits(Canvas* canvas);                                        
 void Canvas_initScrollScreen13(Canvas* canvas);                                           /* 0x0001f494 setState(0xd) helper: tail 0x298f0(canvas,10,0,2): sound 0x53, load bg 10, +0x1c=0,+0x20=2 (?) */
 void Canvas_initScrollScreen8(Canvas* canvas);                                            /* 0x0001f4a4 setState(8) helper: tail 0x298f0(canvas,0x20,0,4) (?) */
 void Canvas_initTravelMap(Canvas* canvas);                                                /* 0x000240b0 loads images 0x2a/0x2b into Canvas+0x228/+0x240, computes travel direction from mapId/prevMapId, table @0x4625c, plays sound 0x53 */
-void Canvas_queueKey(Canvas* canvas, short key);                                          /* 0x00024a80 Canvas+0xc68 short[4], count +0xc70 (called from Applet_HandleEvent) */
+void Canvas_queueKey(Canvas* canvas, short key, int isRepeat);                            /* 0x00024a80 Canvas+0xc68 short[4], count +0xc70 (called from Applet_HandleEvent) */
+void Canvas_keyReleased(Canvas* canvas, short key);
 void Canvas_loadMap(Canvas* canvas, int mapId);                                           /* 0x00026cf8 stub: r2=0 -> Canvas_loadMapEx */
 void Canvas_loadMapEx(Canvas* canvas, int mapId, int force);                              /* 0x00026d00 prevMap=+0x350; text "Loading"/"Saving Game"; tail-calls Canvas_setState(0x3b038) 6/0xb/0xf */
 int Canvas_doLoadMap(Canvas* canvas);                                                     /* 0x0002730c BSP load (0x7ca4), 0x1a2a0, Game_spawnEntities, Hud reset, Game_loadWorld, player start, setState(3) */
