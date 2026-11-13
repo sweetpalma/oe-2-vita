@@ -39,8 +39,9 @@ def verify_data():
 
 def ensure_audio():
     audio_dir = DATA_DIR / "audio"
-    if not audio_dir.is_dir() or not any(audio_dir.glob("*.pcm")):
-        build_audio(DATA_DIR / "orcsandelves2.bar", audio_dir)
+    existing = list(audio_dir.glob("*.pcm")) if audio_dir.is_dir() else []
+    if len(existing) != 115 or not (audio_dir / "0579a450-68387.pcm").is_file():
+        build_audio(DATA_DIR / "orcsandelves2.bar", audio_dir, force=True)
     if not audio_dir.is_dir() or not any(audio_dir.glob("*.pcm")):
         raise RuntimeError(f"No PCM audio files found in {audio_dir}")
 

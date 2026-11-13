@@ -11,6 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BAR_EXPECTED_SHA256 = "508aa62a368cc77c64113a68c5485f43871bf18fa819a58ae8e3aac085265c2f"
+BAR_MAIN_MENU_MUSIC_NAME = "0579a450-68387.pcm"
 
 
 def default_data_dir() -> Path:
@@ -85,9 +86,14 @@ def build_audio(bar_path: Path, out_dir: Path, force: bool = False) -> Path:
         raise RuntimeError(f"Missing or invalid {bar_path} (expected BREW 7.0.41 orcsandelves2.bar)")
 
     existing = list(out_dir.glob("*.pcm")) if out_dir.is_dir() else []
-    if existing and not force:
+    is_valid = len(existing) == 115 and (out_dir / BAR_MAIN_MENU_MUSIC_NAME).is_file()
+    if is_valid and not force:
         print(f"BREW audio: reusing {len(existing)} existing PCM files in {out_dir}")
         return out_dir
+
+    if out_dir.is_dir():
+        for p in out_dir.glob("*.pcm"):
+            p.unlink()
 
     out_dir.mkdir(parents=True, exist_ok=True)
     oe2tool = ensure_oe2tool()
