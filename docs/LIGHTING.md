@@ -60,8 +60,6 @@ typedef struct {
 
 ## 3. Light Source Selection & Prioritization
 
-The hardware can support up to **8 active dynamic lights** per frame (slots `0..7`). Slot 7 is reserved for the player's held weapon light (`key = 2000`).
-
 ### 3.1. Emitter Registration (`sources[]`)
 
 Static props and active sprites register light properties in `sources[]`:
@@ -80,9 +78,19 @@ typedef struct {
 #### Key Emitter IDs:
 
 - **Torches & Wall Sconces:** Tile `116`, `130`, `136`, `143`, `145`, `149`, `150`, `181`, `234`.
-- **Healing Crystals:** Tile `165` (`r=0.15, g=0.45, b=1.0`, cyan glow).
-- **Fire Portal Braziers:** Tile `138`, `145` (purple/orange fire).
+- **Healing Crystals:** Tile `162`, `165` (`r=0.15, g=0.45, b=1.0`, cyan glow).
+- **Fire Portal Braziers & Barriers:** Tile `138`, `145` (braziers), `161` (fire barrier).
 - **Dragon / Boss (Gaya):** Tile `20` (body) and `191` (head/flame) in OE1; Tile `185` in OE2.
+
+#### Player & Held Weapon Lights:
+
+- **Inherent Player Ambient Light:** Always active at low intensity (`radius = 105 * 1.2`, `power = 0.28`, `r=1.0, g=0.62, b=0.28`).
+- **Fire Crossbow (`w == 5`), Diamond / Kinetic Crossbow (`w == 6`), Flaming Sword (`w == 7`):** Full 100% firelight (`radius = 210 * 1.2`, `power = 1.15`, `r=1.0, g=0.38, b=0.08`).
+- **Wand Orbs (`w == 8..10`):** Tuned to 75% intensity (`radius = 210 * 1.2`, `power = 0.86`).
+  - Shrink Orb (`w == 8`): Red light (`r=1.0, g=0.18, b=0.10`).
+  - Mold Orb (`w == 9`): Green light (`r=0.25, g=1.0, b=0.35`).
+  - Freeze Orb (`w == 10`): Ice blue light (`r=0.35, g=0.65, b=1.0`).
+- **Emissive Weapon Sprite Self-Illumination:** Light-emitting held weapons (`w in {0, 5, 6, 7, 8, 9, 10}`) receive a 1.4x brightness scaling with a minimum floor of 1.25 to prevent dark silhouettes.
 
 ### 3.2. View-Frustum Scoring (`selectionScore`)
 

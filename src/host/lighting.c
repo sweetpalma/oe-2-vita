@@ -67,7 +67,10 @@ typedef struct {float x,y,z,size;int frame;uint32_t flags;int active;} Caster;
 static const Source sources[]={
  {116,1,.42f,.10f,230,2.2f,-20,1},
  {130,1,.40f,.10f,240,2.2f,0,1}, {136,1,.52f,.19f,240,2.0f,24,1},
+ {138,1,.42f,.12f,240,2.0f,12,1}, {143,1,.45f,.12f,210,1.8f,16,1},
+ {145,1,.40f,.15f,220,2.0f,16,1},
  {149,1,.30f,.06f,150,1.6f,0,1}, {150,1,.62f,.30f,210,1.6f,18,1},
+ {161,1,.25f,.10f,220,1.8f,16,1},
  {181,1,.68f,.37f,150,1.2f,14,1}, {234,1,.40f,.10f,240,2.2f,0,1},
  {14,.35f,.65f,1,150,1.2f,0,0}, {15,.25f,1,.35f,150,1.2f,0,0}, {16,1,.18f,.10f,150,1.2f,0,0},
  {224,.25f,.55f,1,170,1.3f,0,0}, {230,1,.75f,.20f,150,1.3f,0,0}, {235,.6f,.2f,1,180,1.3f,0,0}, {238,.25f,.55f,1,170,1.3f,0,0},
@@ -666,13 +669,20 @@ static void gather(Render *r){
  for(int i=0;i<numLights;i++)for(int j=i+1;j<numLights;j++)if(lights[j].key<lights[i].key){Light a=lights[i];lights[i]=lights[j];lights[j]=a;}
  retainedCount=numLights;for(int i=0;i<retainedCount;i++)retainedKeys[i]=lights[i].key;
  Player *p=g_app->player;Canvas *c=g_app->canvas;
- if(p->weapons&&(p->ce.weapon==0||p->ce.weapon==7||p->ce.weapon>=8)){
-  int w=p->ce.weapon;float a=(c->viewAngle&1023)*(6.28318530718f/1024);
-  Light l={c->viewX+cosf(a)*14,c->viewY-sinf(a)*14,c->viewZ-5.f,1,.62f,.28f,210,1.15f,0,2000};
-  if(w==0){l.radius=105;l.power=.28f;}
-  if(w==8){l.r=.35f;l.g=.65f;l.b=1;}else if(w==9){l.r=.25f;l.g=1;l.b=.35f;}else if(w==10){l.r=1;l.g=.18f;l.b=.10f;}else if(w==7){l.r=1;l.g=.38f;l.b=.08f;}
-  l.radius*=LIGHT_REFERENCE_SCALE;lights[numLights++]=l;
+ float a=(c->viewAngle&1023)*(6.28318530718f/1024);
+ Light l={c->viewX+cosf(a)*14,c->viewY-sinf(a)*14,c->viewZ-5.f,1,.62f,.28f,105,.28f,0,2000};
+ if(p&&p->weapons){
+  int w=p->ce.weapon;
+  if(w==5||w==6||w==7){
+   l.r=1;l.g=.38f;l.b=.08f;l.radius=210;l.power=1.15f;
+  }else if(w>=8){
+   l.radius=210;l.power=.86f;
+   if(w==8){l.r=1;l.g=.18f;l.b=.10f;}
+   else if(w==9){l.r=.25f;l.g=1;l.b=.35f;}
+   else if(w==10){l.r=.35f;l.g=.65f;l.b=1;}
+  }
  }
+ l.radius*=LIGHT_REFERENCE_SCALE;lights[numLights++]=l;
  uint32_t h=2166136261u;
  for(int i=0;i<r->numLines;i++){
   Line *l=&r->lines[i];h=hashWord(h,(uint32_t)l->x1);h=hashWord(h,(uint32_t)l->y1);h=hashWord(h,(uint32_t)l->x2);h=hashWord(h,(uint32_t)l->y2);h=hashWord(h,l->flags&(HIDDEN|NO_DEPTH|0xc0010000u));
@@ -1111,6 +1121,10 @@ static void incidentEnergyCtx(const Surface *s,const float *flicker,int column,f
 #endif
    energy[0]+=l->r*e;energy[1]+=l->g*e;energy[2]+=l->b*e;
   }
+  if(kind==4&&g_app&&g_app->player&&g_app->player->weapons){
+   int w=g_app->player->ce.weapon;
+   if(w==0||w==5||w==6||w==7||w>=8)for(int ch=0;ch<3;ch++)energy[ch]=fmaxf(energy[ch]*1.4f,1.25f);
+  }
 }
 static inline void incidentEnergy(const Surface *s,const float *flicker,int column,float *energy){incidentEnergyCtx(s,flicker,column,energy,&lightWorkerCtx[0]);}
 #else
@@ -1130,6 +1144,10 @@ static void incidentEnergy(const Surface *s,const float *flicker,int column,floa
    if(kind!=4&&l->key!=2000)e*=shadow(s,j,column)*(.75f+.25f*ao);
 #endif
    energy[0]+=l->r*e;energy[1]+=l->g*e;energy[2]+=l->b*e;
+  }
+  if(kind==4&&g_app&&g_app->player&&g_app->player->weapons){
+   int w=g_app->player->ce.weapon;
+   if(w==0||w==5||w==6||w==7||w>=8)for(int ch=0;ch<3;ch++)energy[ch]=fmaxf(energy[ch]*1.4f,1.25f);
   }
 }
 #endif
