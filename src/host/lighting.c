@@ -1121,6 +1121,14 @@ static void incidentEnergyCtx(const Surface *s,const float *flicker,int column,f
 #endif
    energy[0]+=l->r*e;energy[1]+=l->g*e;energy[2]+=l->b*e;
   }
+  if(kind!=4){
+   for(int ch=0;ch<3;ch++){
+    if(energy[ch]>1.6f){
+     energy[ch]=1.6f+(energy[ch]-1.6f)/(1.f+(energy[ch]-1.6f)*0.8f);
+     if(energy[ch]>2.2f)energy[ch]=2.2f;
+    }
+   }
+  }
   if(kind==4&&g_app&&g_app->player&&g_app->player->weapons){
    int w=g_app->player->ce.weapon;
    if(w==0||w==5||w==6||w==7||w>=8)for(int ch=0;ch<3;ch++)energy[ch]=fmaxf(energy[ch]*1.4f,1.25f);
@@ -1144,6 +1152,14 @@ static void incidentEnergy(const Surface *s,const float *flicker,int column,floa
    if(kind!=4&&l->key!=2000)e*=shadow(s,j,column)*(.75f+.25f*ao);
 #endif
    energy[0]+=l->r*e;energy[1]+=l->g*e;energy[2]+=l->b*e;
+  }
+  if(kind!=4){
+   for(int ch=0;ch<3;ch++){
+    if(energy[ch]>1.6f){
+     energy[ch]=1.6f+(energy[ch]-1.6f)/(1.f+(energy[ch]-1.6f)*0.8f);
+     if(energy[ch]>2.2f)energy[ch]=2.2f;
+    }
+   }
   }
   if(kind==4&&g_app&&g_app->player&&g_app->player->weapons){
    int w=g_app->player->ce.weapon;
@@ -1233,7 +1249,7 @@ static void initLUT(void){
  for(int i=0;i<=4096;i++){
   sqrtLUT[i]=(uint8_t)(sqrtf(i/4096.f)*255.f+.5f);
   float lin=i*(4.f/4096.f);
-  float mapped=lin>1.f?lin/(1.f+(lin-1.f)*.7f):lin;
+  float mapped=lin>0.75f?0.75f+0.25f*(lin-0.75f)/((lin-0.75f)+0.8f):lin;
   toneLUT[i]=(uint8_t)(clampf(sqrtf(mapped),0.f,1.f)*255.f+.5f);
  }
  lutReady=1;
