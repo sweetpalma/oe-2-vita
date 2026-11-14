@@ -117,7 +117,7 @@ The bridge wraps the software-rasterized framebuffer and enhances it without mut
     - View-frustum directional light scoring.
     - Geometric line occluders traced against BSP wall lines.
     - Ambient occlusion and contact shading.
-    - Detailed breakdown in [LIGHTING.md](file:///Users/palma/Documents/GitHub/personal/orcs-elves-ii-remastered/docs/LIGHTING.md).
+    - Detailed breakdown in [LIGHTING.md](LIGHTING.md).
 
 ---
 

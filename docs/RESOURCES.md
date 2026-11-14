@@ -2,7 +2,7 @@
 
 This document specifies the reverse-engineered binary structures, asset containers, and data models of *Orcs & Elves II* (BREW 7.0.41 build). All multi-byte integer values in these files are stored in **little-endian** byte order unless explicitly noted.
 
-Tooling reference: All resources described below can be directly queried, extracted, and inspected using [tools/oe2data.py](file:///Users/palma/Documents/GitHub/personal/orcs-elves-ii/tools/oe2data.py).
+Tooling reference: All resources described below can be directly queried, extracted, and inspected using [tools/oe2data.py](../tools/oe2data.py).
 
 ---
 
@@ -53,7 +53,7 @@ The uncompressed filename is stored in the gzip header (`flags & 0x08`, null-ter
 
 ## 2. Entity Definition Table (`entities.bin` / Resource 1000)
 
-Loaded in [src/engine/src/game/entity.c](file:///Users/palma/Documents/GitHub/personal/orcs-elves-ii/src/engine/src/game/entity.c#L133-L170).
+Loaded in [src/engine/src/game/entity.c](../src/engine/src/game/entity.c).
 
 ### 2.1 File Header
 - `uint16 count`: Total entity definitions (`190` in OE2).
@@ -100,7 +100,7 @@ struct EntityDefRecord {
 
 ## 3. String Tables (`strings.bin` / Resource 1002)
 
-Loaded in [src/engine/src/game/core_text.c](file:///Users/palma/Documents/GitHub/personal/orcs-elves-ii/src/engine/src/game/core_text.c#L23-L72).
+Loaded in [src/engine/src/game/core_text.c](../src/engine/src/game/core_text.c).
 
 ### 3.1 Structure
 - `uint32 numGroups`: Number of string groups (`21`).
@@ -138,7 +138,7 @@ Loaded in [src/engine/src/game/core_text.c](file:///Users/palma/Documents/GitHub
 
 ## 4. Map BSP Format (`m_01.bsp`..`m_07.bsp` / Resources 2000..2013)
 
-Loaded in [src/engine/src/game/render_load.c](file:///Users/palma/Documents/GitHub/personal/orcs-elves-ii/src/engine/src/game/render_load.c#L770-L1170).
+Loaded in [src/engine/src/game/render_load.c](../src/engine/src/game/render_load.c).
 
 ### 4.1 Header (25 bytes)
 ```
@@ -227,7 +227,7 @@ Maps have a fixed grid resolution of **32 × 32 cells** (1,024 tiles total):
 
 ## 5. Graphics Mappings, Palettes, Bitshapes & Texels
 
-Loaded in [src/engine/src/game/render_load.c](file:///Users/palma/Documents/GitHub/personal/orcs-elves-ii/src/engine/src/game/render_load.c#L155-L740).
+Loaded in [src/engine/src/game/render_load.c](../src/engine/src/game/render_load.c).
 
 ### 5.1 `mappings.bin` (Resource 1004)
 Contains six 32-bit counts:
