@@ -123,6 +123,137 @@ void Plat_setWindowTitle(const char *title) {
     SDL_SetWindowTitle(win, title);
 }
 
+#ifdef __vita__
+#include "font8x8.h"
+
+static void render_char_8x8(SDL_Renderer *r, int x, int y, char c, int scale) {
+  if ((unsigned char)c > 127)
+    return;
+  const uint8_t *bitmap = font8x8_basic[(unsigned char)c];
+  for (int row = 0; row < 8; row++) {
+    uint8_t bits = bitmap[row];
+    for (int col = 0; col < 8; col++) {
+      if (bits & (1 << col)) {
+        SDL_Rect rect = {x + col * scale, y + row * scale, scale, scale};
+        SDL_RenderFillRect(r, &rect);
+      }
+    }
+  }
+}
+
+static void render_text_8x8(SDL_Renderer *r, int x, int y, const char *str, int scale, int line_spacing, int max_w) {
+  int curX = x;
+  int curY = y;
+  const char *p = str;
+  while (*p) {
+    if (*p == '\n') {
+      curX = x;
+      curY += 8 * scale + line_spacing;
+      p++;
+      continue;
+    }
+    if (*p == ' ') {
+      /* Peek ahead to calculate the length of the next word */
+      const char *w = p + 1;
+      int word_len = 0;
+      while (*w && *w != ' ' && *w != '\n') {
+        word_len++;
+        w++;
+      }
+      /* If the next word would exceed max_w and we aren't at the start of a line, wrap */
+      if (max_w > 0 && curX > x && ((curX - x) + (1 + word_len) * 8 * scale > max_w)) {
+        curX = x;
+        curY += 8 * scale + line_spacing;
+        p++; /* Skip the space when breaking */
+        continue;
+      }
+      render_char_8x8(r, curX, curY, ' ', scale);
+      curX += 8 * scale;
+      p++;
+      continue;
+    }
+    /* Non-space character overflow check */
+    if (max_w > 0 && curX > x && ((curX - x) + 8 * scale > max_w)) {
+      curX = x;
+      curY += 8 * scale + line_spacing;
+    }
+    render_char_8x8(r, curX, curY, *p, scale);
+    curX += 8 * scale;
+    p++;
+  }
+}
+#endif
+
+void Plat_showError(const char *title, const char *msg) {
+  fprintf(stderr, "%s: %s\n", title, msg);
+#ifdef __vita__
+  if (!win || !ren) {
+    Plat_init(scrW > 0 ? scrW : 352, scrH > 0 ? scrH : 200, title ? title : "Orcs & Elves II");
+  }
+  if (ren) {
+    /* 1. Backdrop */
+    SDL_SetRenderDrawColor(ren, 15, 15, 20, 255);
+    SDL_RenderClear(ren);
+
+    /* 2. Dialog box in center: 820 x 440 at (70, 52) */
+    int boxX = 70, boxY = 52, boxW = 820, boxH = 440;
+    int maxTextW = boxW - 60;
+    SDL_Rect boxRect = {boxX, boxY, boxW, boxH};
+    SDL_SetRenderDrawColor(ren, 26, 26, 36, 255);
+    SDL_RenderFillRect(ren, &boxRect);
+
+    /* 3. Gold border */
+    SDL_SetRenderDrawColor(ren, 200, 150, 45, 255);
+    for (int b = 0; b < 3; b++) {
+      SDL_Rect borderRect = {boxX - b, boxY - b, boxW + 2 * b, boxH + 2 * b};
+      SDL_RenderDrawRect(ren, &borderRect);
+    }
+
+    /* 4. Title banner: scale = 3 (24x24 px per char) */
+    SDL_SetRenderDrawColor(ren, 240, 180, 50, 255);
+    render_text_8x8(ren, boxX + 30, boxY + 25, title ? title : "Orcs & Elves II", 3, 4, maxTextW);
+
+    /* 5. Separator line */
+    SDL_SetRenderDrawColor(ren, 80, 80, 100, 255);
+    SDL_Rect sepRect = {boxX + 25, boxY + 62, boxW - 50, 2};
+    SDL_RenderFillRect(ren, &sepRect);
+
+    /* 6. Message body: scale = 2 (16x16 px per char) */
+    SDL_SetRenderDrawColor(ren, 235, 235, 240, 255);
+    render_text_8x8(ren, boxX + 30, boxY + 90, msg, 2, 8, maxTextW);
+
+    /* 7. Footer prompt */
+    SDL_SetRenderDrawColor(ren, 140, 140, 160, 255);
+    render_text_8x8(ren, boxX + 30, boxY + boxH - 45, "Press (X), (O), or START to exit.", 2, 0, maxTextW);
+
+    SDL_RenderPresent(ren);
+
+    /* Wait for user to dismiss dialog */
+    for (;;) {
+      SceCtrlData pad;
+      memset(&pad, 0, sizeof(pad));
+      if (sceCtrlPeekBufferPositive(0, &pad, 1) >= 0) {
+        if (pad.buttons & (SCE_CTRL_CROSS | SCE_CTRL_CIRCLE | SCE_CTRL_START | SCE_CTRL_SQUARE | SCE_CTRL_TRIANGLE))
+          break;
+      }
+      SDL_Event ev;
+      while (SDL_PollEvent(&ev)) {
+        if (ev.type == SDL_QUIT || ev.type == SDL_KEYDOWN)
+          goto done;
+      }
+      sceKernelDelayThread(20000);
+    }
+done:
+    sceKernelExitProcess(1);
+  }
+#else
+  if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
+    SDL_Init(SDL_INIT_VIDEO);
+  }
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, msg, win);
+#endif
+}
+
 void Plat_present(const uint16_t *fb, int pitchPixels) {
   if (!tex || !rgbaFrame || virtClock)
     return;

@@ -131,6 +131,9 @@ extern "C" int Plat_isMinimized(void) { return gMinimized; }
 extern "C" void Plat_delay(uint32_t ms) { User::After(ms * 1000); }
 
 extern "C" void Plat_setWindowTitle(const char* /*title*/) {}
+extern "C" void Plat_showError(const char* title, const char* msg) {
+	fprintf(stderr, "%s: %s\n", title, msg);
+}
 
 extern "C" void Plat_vibrate(int ms)
 {

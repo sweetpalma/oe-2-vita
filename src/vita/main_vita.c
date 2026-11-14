@@ -61,31 +61,22 @@ int main(int argc, char **argv) {
   (void)argv;
 
   if (!data) {
-    fprintf(stderr, "Missing game data in ux0:data/oe2\n");
-#ifdef __vita__
-    SDL_ShowSimpleMessageBox(
-        SDL_MESSAGEBOX_ERROR, "Orcs & Elves II",
+    Plat_showError(
+        "Orcs & Elves II",
         "Could not find game data!\n\n"
-        "Please copy orcsandelves2.bar and orcsandelves2.mod\n"
-        "to ux0:data/oe2/",
-        NULL);
-    sceKernelExitProcess(1);
-#endif
+        "Please copy orcsandelves2.bar and\n"
+        "orcsandelves2.mod to ux0:data/oe2/");
     return 1;
   }
 
   if (Brew_init(data, w, h) != 0) {
-    fprintf(stderr, "Failed to load game data from %s\n", data);
-#ifdef __vita__
     char msg[256];
     snprintf(msg, sizeof(msg),
              "Failed to load game data from:\n%s\n\n"
              "Please check that orcsandelves2.bar and\n"
              "orcsandelves2.mod are valid BREW 7.0.41 files.",
              data);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Orcs & Elves II", msg, NULL);
-    sceKernelExitProcess(1);
-#endif
+    Plat_showError("Orcs & Elves II", msg);
     return 1;
   }
   if (Plat_init(w, h, "Orcs & Elves II") != 0) {
@@ -99,6 +90,7 @@ int main(int argc, char **argv) {
 
   app = App_create(w, h);
   if (!app) {
+    Plat_showError("Orcs & Elves II", "Engine startup failed.\nOut of memory or corrupted data.");
     Plat_shutdown();
     Brew_shutdown();
 #ifdef __vita__

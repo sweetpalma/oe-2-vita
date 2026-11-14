@@ -109,6 +109,14 @@ void Plat_setWindowTitle(const char *title) {
     SDL_SetWindowTitle(win, title);
 }
 
+void Plat_showError(const char *title, const char *msg) {
+  fprintf(stderr, "%s: %s\n", title, msg);
+  if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
+    SDL_Init(SDL_INIT_VIDEO);
+  }
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, msg, win);
+}
+
 void Plat_present(const uint16_t *fb, int pitchPixels) {
   if (!tex || virtClock) /* headless test runs: nothing to show; skipping the
                             upload/present keeps them fast */

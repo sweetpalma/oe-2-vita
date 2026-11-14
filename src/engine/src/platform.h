@@ -71,6 +71,7 @@ int Plat_pollEvents(PlatKeyEvent *ev, int max, int *count);
 int Plat_isMinimized(void);
 void Plat_vibrate(int ms);
 void Plat_setWindowTitle(const char *title);
+void Plat_showError(const char *title, const char *msg);
 
 /* data directory (bar, saves). Set once at startup. */
 void Plat_setDataDir(const char *dir);

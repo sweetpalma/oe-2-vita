@@ -256,10 +256,13 @@ int main(int argc, char **argv) {
   }
 
   if (Brew_init(data, w, h) != 0) {
-    fprintf(stderr,
-            "Put orcsandelves2.bar and orcsandelves2.mod in %s/ (see "
-            "%s/README.txt).\n",
-            data, data);
+    char msg[512];
+    snprintf(msg, sizeof(msg),
+             "Game data was not found! "
+             "Please place \"orcsandelves2.bar\" and \"orcsandelves2.mod\""
+             "in the \"%s\" folder.",
+             data);
+    Plat_showError("Orcs & Elves II", msg);
     return 1;
   }
   if (Plat_init(w, h, "Orcs & Elves II") != 0)
@@ -268,7 +271,8 @@ int main(int argc, char **argv) {
 
   app = App_create(w, h);
   if (!app) {
-    fprintf(stderr, "Engine startup failed.\n");
+    Plat_showError("Orcs & Elves II",
+                   "Engine startup failed.\nOut of memory or corrupted data.");
     Plat_shutdown();
     Brew_shutdown();
     return 1;
