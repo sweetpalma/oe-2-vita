@@ -43,4 +43,4 @@ Platform-specific backend tailored for the PS Vita hardware:
   - **Graphics:** SDL2 hardware-accelerated GXM renderer (`960×544`).
   - **Controls:** Direct `SceCtrl` sampling with analog stick deadzones, face buttons, shoulder triggers, and merchant offer adjustments.
   - **Audio:** SceAudio / SDL2 audio output with Kaiser-windowed sinc resampler.
-  - **Storage:** Redirects saves and configuration to `ux0:data/oe2/`.
+  - **Storage:** Redirects saves and configuration to `ux0:data/oe2/saves/` (with automatic backward compatibility / migration).

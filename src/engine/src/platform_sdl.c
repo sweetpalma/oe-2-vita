@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#endif
 
 static SDL_Window *win;
 static SDL_Renderer *ren;
@@ -20,6 +23,7 @@ static uint32_t *rgbaFrame;
 #endif
 static int scrW, scrH;
 static char dataDir[1024] = "data";
+static char saveDir[1024] = "data/saves";
 static int virtClock;
 static uint32_t virtNow;
 
@@ -235,15 +239,50 @@ int Plat_isMinimized(void) {
 
 /* ---- files ---- */
 
+static void ensure_dir(const char *dir) {
+#ifdef _WIN32
+  _mkdir(dir);
+#else
+  mkdir(dir, 0755);
+#endif
+}
+
+static void migrate_saves(const char *oldDir, const char *newDir) {
+  static const char *const files[] = {
+      "SaveData", "Config", "LightingCfg", "SD_0", "SD_1", "SD_2", "SD_3",
+      "SD_4",     "SD_5",   "SD_6",        "SD_7", "SD_8", "SD_9",
+  };
+  char oldPath[2048];
+  char newPath[2048];
+  struct stat st;
+  for (size_t i = 0; i < sizeof(files) / sizeof(files[0]); i++) {
+    snprintf(oldPath, sizeof(oldPath), "%s/%s", oldDir, files[i]);
+    snprintf(newPath, sizeof(newPath), "%s/%s", newDir, files[i]);
+    if (stat(oldPath, &st) == 0 && stat(newPath, &st) != 0) {
+      rename(oldPath, newPath);
+    }
+  }
+}
+
 void Plat_setDataDir(const char *dir) {
   snprintf(dataDir, sizeof(dataDir), "%s", dir);
+  snprintf(saveDir, sizeof(saveDir), "%s/saves", dir);
+  ensure_dir(saveDir);
+  migrate_saves(dataDir, saveDir);
 }
 
 const char *Plat_dataDir(void) { return dataDir; }
 
 const char *Plat_dataPath(const char *name) {
   static char path[2048];
-  snprintf(path, sizeof(path), "%s/%s", dataDir, name);
+  char legacy[2048];
+  struct stat st;
+  snprintf(path, sizeof(path), "%s/%s", saveDir, name);
+  snprintf(legacy, sizeof(legacy), "%s/%s", dataDir, name);
+  if (stat(path, &st) != 0 && stat(legacy, &st) == 0) {
+    ensure_dir(saveDir);
+    rename(legacy, path);
+  }
   return path;
 }
 
@@ -274,6 +313,7 @@ int Plat_fileRead(const char *name, uint8_t **data, size_t *len) {
 int Plat_fileWrite(const char *name, const void *data, size_t len) {
   char tmp[2100];
   FILE *f;
+  ensure_dir(saveDir);
   snprintf(tmp, sizeof(tmp), "%s.tmp", Plat_dataPath(name));
   f = fopen(tmp, "wb");
   if (!f)
@@ -291,6 +331,9 @@ int Plat_fileWrite(const char *name, const void *data, size_t len) {
 }
 
 int Plat_fileRemove(const char *name) {
+  char legacy[2048];
+  snprintf(legacy, sizeof(legacy), "%s/%s", dataDir, name);
+  remove(legacy);
   return remove(Plat_dataPath(name)) == 0 ? 0 : -1;
 }
 

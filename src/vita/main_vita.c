@@ -29,6 +29,7 @@ static const char *resolve_data_dir(void) {
 #ifdef __vita__
   sceIoMkdir("ux0:data", 0777);
   sceIoMkdir("ux0:data/oe2", 0777);
+  sceIoMkdir("ux0:data/oe2/saves", 0777);
 #endif
   for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
     char bar_path[256];

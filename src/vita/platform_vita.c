@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#endif
 
 #ifdef __vita__
 #include <psp2/ctrl.h>
@@ -27,7 +30,7 @@ static SDL_Texture *tex;
 static uint32_t *rgbaFrame;
 static int scrW, scrH;
 static char dataDir[1024] = "app0:data";
-static char saveDir[1024] = "ux0:data/oe2";
+static char saveDir[1024] = "ux0:data/oe2/saves";
 static int virtClock;
 static uint32_t virtNow;
 
@@ -43,6 +46,7 @@ int Plat_init(int screenW, int screenH, const char *title) {
   sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG_WIDE);
   sceIoMkdir("ux0:data", 0777);
   sceIoMkdir("ux0:data/oe2", 0777);
+  sceIoMkdir("ux0:data/oe2/saves", 0777);
 #endif
 
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER |
@@ -397,15 +401,49 @@ int Plat_isMinimized(void) {
 
 /* ---- files ---- */
 
+static void ensure_dir(const char *dir) {
+#ifdef __vita__
+  sceIoMkdir(dir, 0777);
+#elif defined(_WIN32)
+  _mkdir(dir);
+#else
+  mkdir(dir, 0755);
+#endif
+}
+
+static void migrate_saves(const char *oldDir, const char *newDir) {
+  static const char *const files[] = {
+      "SaveData", "Config", "LightingCfg", "SD_0", "SD_1", "SD_2", "SD_3",
+      "SD_4",     "SD_5",   "SD_6",        "SD_7", "SD_8", "SD_9",
+  };
+  char oldPath[2048];
+  char newPath[2048];
+  struct stat st;
+  for (size_t i = 0; i < sizeof(files) / sizeof(files[0]); i++) {
+    snprintf(oldPath, sizeof(oldPath), "%s/%s", oldDir, files[i]);
+    snprintf(newPath, sizeof(newPath), "%s/%s", newDir, files[i]);
+    if (stat(oldPath, &st) == 0 && stat(newPath, &st) != 0) {
+      rename(oldPath, newPath);
+    }
+  }
+}
+
 void Plat_setDataDir(const char *dir) {
   snprintf(dataDir, sizeof(dataDir), "%s", dir);
 #ifdef __vita__
   if (strncmp(dir, "app0:", 5) == 0)
-    snprintf(saveDir, sizeof(saveDir), "ux0:data/oe2");
-  else
-    snprintf(saveDir, sizeof(saveDir), "%s", dir);
+  snprintf(saveDir, sizeof(saveDir), "ux0:data/oe2/saves");
+  snprintf(saveDir, sizeof(saveDir), "%s/saves", dir);
+  ensure_dir("ux0:data");
+  ensure_dir("ux0:data/oe2");
+  ensure_dir(saveDir);
+  migrate_saves("ux0:data/oe2", saveDir);
+  if (strcmp(dataDir, "ux0:data/oe2") != 0 && strncmp(dataDir, "app0:", 5) != 0)
+    migrate_saves(dataDir, saveDir);
 #else
-  snprintf(saveDir, sizeof(saveDir), "%s", dir);
+  snprintf(saveDir, sizeof(saveDir), "%s/saves", dir);
+  ensure_dir(saveDir);
+  migrate_saves(dataDir, saveDir);
 #endif
 }
 
@@ -413,7 +451,18 @@ const char *Plat_dataDir(void) { return dataDir; }
 
 const char *Plat_dataPath(const char *name) {
   static char path[2048];
+  char legacy[2048];
+  struct stat st;
   snprintf(path, sizeof(path), "%s/%s", saveDir, name);
+#ifdef __vita__
+  snprintf(legacy, sizeof(legacy), "ux0:data/oe2/%s", name);
+#else
+  snprintf(legacy, sizeof(legacy), "%s/%s", dataDir, name);
+#endif
+  if (stat(path, &st) != 0 && stat(legacy, &st) == 0) {
+    ensure_dir(saveDir);
+    rename(legacy, path);
+  }
   return path;
 }
 
@@ -444,6 +493,7 @@ int Plat_fileRead(const char *name, uint8_t **data, size_t *len) {
 int Plat_fileWrite(const char *name, const void *data, size_t len) {
   char tmp[2100];
   FILE *f;
+  ensure_dir(saveDir);
   snprintf(tmp, sizeof(tmp), "%s.tmp", Plat_dataPath(name));
   f = fopen(tmp, "wb");
   if (!f)
@@ -462,6 +512,13 @@ int Plat_fileWrite(const char *name, const void *data, size_t len) {
 }
 
 int Plat_fileRemove(const char *name) {
+  char legacy[2048];
+#ifdef __vita__
+  snprintf(legacy, sizeof(legacy), "ux0:data/oe2/%s", name);
+#else
+  snprintf(legacy, sizeof(legacy), "%s/%s", dataDir, name);
+#endif
+  remove(legacy);
   return remove(Plat_dataPath(name)) == 0 ? 0 : -1;
 }
 

@@ -163,4 +163,4 @@ The Vita port directly binds the engine to Sony PlayStation Vita hardware librar
   - Frame presentation stretches the 3D viewport while maintaining the original UI frame scaling.
 - **Controls (`platform_vita.c`):**
 - **Storage:**
-  - Redirection of saves, user preferences, and high scores to `ux0:data/oe2/`.
+  - Redirection of saves, user preferences, and lighting configuration to `ux0:data/oe2/saves/` (with automatic migration from legacy `ux0:data/oe2/`).
