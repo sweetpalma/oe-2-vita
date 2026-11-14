@@ -571,9 +571,11 @@ static int selectDeveloper(Menu *menus, int item)
 	case 10:
 		MenuSystem_infiniteLoop();
 		return 0xcc;
-	case 11: /* exhaust the heap (the block is never freed) */
-		(void)malloc((size_t)App_getFreeMemory(app));
+	case 11: { /* exhaust the heap (the block is never freed) */
+		void *p = malloc((size_t)App_getFreeMemory(app));
+		(void)p;
 		return 0xcc;
+	}
 	case 12:
 		app->canvas->state = -1;
 		return 0xcc;

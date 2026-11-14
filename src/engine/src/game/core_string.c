@@ -39,6 +39,10 @@ char *String_allocCopy(int size, String *src, int n)
 }
 
 /* 0x00040384 */
+#if defined(__GNUC__) && __GNUC__ >= 11
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfree-nonheap-object"
+#endif
 void String_freeBuffer(String *s)
 {
 	if (s->buf) {
@@ -46,6 +50,9 @@ void String_freeBuffer(String *s)
 		s->buf = NULL;
 	}
 }
+#if defined(__GNUC__) && __GNUC__ >= 11
+#pragma GCC diagnostic pop
+#endif
 
 /* 0x0001ba78 */
 void String_release(String *s)

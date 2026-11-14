@@ -210,7 +210,7 @@ def main():
         print("Note: Game data was bundled in the VPK. No additional install is required.")
     else:
         print("Note: Game data is NOT bundled in the VPK.")
-        print("Copy 'orcsandelves2.bar' and 'orcsandelves2.mod' to 'ux0:data/oe2/' to play.")
+        print("Note: Copy 'orcsandelves2.bar' and 'orcsandelves2.mod' to 'ux0:data/oe2/' in order to play.")
 
 if __name__ == "__main__":
     main()
