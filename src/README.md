@@ -43,4 +43,4 @@ Platform-specific backend tailored for the PS Vita hardware:
   - **Controls:** Direct `SceCtrl` sampling with analog stick deadzones, face buttons, shoulder triggers, and merchant offer adjustments.
   - **Audio:** SceAudio / SDL2 audio output with Kaiser-windowed sinc resampler.
   - **Storage:** Redirects saves and configuration to `ux0:data/oe2/`.
-- **`pmd_vita.c`:** Fast, low-overhead pre-decoded PCM audio loader from `app0:data/audio/`.
+- **`pmd_vita.c`:** Fast, low-overhead pre-decoded PCM audio loader from `ux0:data/oe2/audio/` (or `app0:data/audio/`).

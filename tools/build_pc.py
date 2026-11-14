@@ -20,19 +20,24 @@ def resolve_data_dir() -> Path:
 DATA_DIR = resolve_data_dir()
 
 
-def verify_data():
+def verify_data() -> bool:
     expected = {
         "orcsandelves2.bar": "508aa62a368cc77c64113a68c5485f43871bf18fa819a58ae8e3aac085265c2f",
         "orcsandelves2.mod": "1b8664e937ef8c43c474dff9b82c398b46425c5cca43eff5919e4ce96fc3d750",
     }
+    has_data = True
     for name, sha in expected.items():
         path = DATA_DIR / name
-        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
-            raise RuntimeError(f"Missing or invalid {path} (expected BREW 7.0.41)")
+        if not path.is_file():
+            has_data = False
+            break
+        if hashlib.sha256(path.read_bytes()).hexdigest() != sha:
+            print(f"Warning: {path} does not match expected BREW 7.0.41 checksum")
+    return has_data
 
 
 def main():
-    verify_data()
+    has_data = verify_data()
     cmake = shutil.which("cmake")
     if not cmake:
         raise RuntimeError("cmake not found in PATH")
@@ -52,8 +57,8 @@ def main():
     shutil.copy2(src_bin, dst_bin)
     sha = hashlib.sha256(dst_bin.read_bytes()).hexdigest()
     print(f"Built {dst_bin} ({dst_bin.stat().st_size} bytes, SHA-256 {sha})")
-
-
+    print("Note: Ship data files (orcsandelves2.bar, orcsandelves2.mod) inside \"data\" folder together with the executable.")
+        
 if __name__ == "__main__":
     main()
 

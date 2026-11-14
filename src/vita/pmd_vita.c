@@ -8,8 +8,8 @@
 
 int Pmd_decode(const uint8_t *cmf, size_t len, int16_t **pcm, int *samples) {
   static const char *const prefixes[] = {
-      "app0:data/audio",
       "ux0:data/oe2/audio",
+      "app0:data/audio",
       "data/audio",
       "/data/audio",
   };

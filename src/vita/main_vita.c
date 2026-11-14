@@ -5,10 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <SDL.h>
+
 #include "game.h"
 #include "standalone_bridge.h"
 
 #ifdef __vita__
+#include <psp2/io/stat.h>
 #include <psp2/kernel/processmgr.h>
 #endif
 
@@ -19,20 +22,32 @@
 
 static const char *resolve_data_dir(void) {
   static const char *const candidates[] = {
-      "app0:data",
       "ux0:data/oe2",
+      "app0:data",
       "data",
   };
+#ifdef __vita__
+  sceIoMkdir("ux0:data", 0777);
+  sceIoMkdir("ux0:data/oe2", 0777);
+#endif
   for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
-    char path[256];
-    snprintf(path, sizeof(path), "%s/orcsandelves2.bar", candidates[i]);
-    FILE *f = fopen(path, "rb");
-    if (f) {
-      fclose(f);
+    char bar_path[256];
+    char mod_path[256];
+    snprintf(bar_path, sizeof(bar_path), "%s/orcsandelves2.bar", candidates[i]);
+    snprintf(mod_path, sizeof(mod_path), "%s/orcsandelves2.mod", candidates[i]);
+    FILE *fb = fopen(bar_path, "rb");
+    FILE *fm = fopen(mod_path, "rb");
+    if (fb && fm) {
+      fclose(fb);
+      fclose(fm);
       return candidates[i];
     }
+    if (fb)
+      fclose(fb);
+    if (fm)
+      fclose(fm);
   }
-  return "app0:data";
+  return NULL;
 }
 
 int main(int argc, char **argv) {
@@ -44,8 +59,30 @@ int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
 
-  if (Brew_init(data, w, h) != 0) {
+  if (!data) {
+    fprintf(stderr, "Missing game data in ux0:data/oe2\n");
 #ifdef __vita__
+    SDL_ShowSimpleMessageBox(
+        SDL_MESSAGEBOX_ERROR, "Orcs & Elves II",
+        "Could not find game data!\n\n"
+        "Please copy orcsandelves2.bar and orcsandelves2.mod\n"
+        "to ux0:data/oe2/",
+        NULL);
+    sceKernelExitProcess(1);
+#endif
+    return 1;
+  }
+
+  if (Brew_init(data, w, h) != 0) {
+    fprintf(stderr, "Failed to load game data from %s\n", data);
+#ifdef __vita__
+    char msg[256];
+    snprintf(msg, sizeof(msg),
+             "Failed to load game data from:\n%s\n\n"
+             "Please check that orcsandelves2.bar and\n"
+             "orcsandelves2.mod are valid BREW 7.0.41 files.",
+             data);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Orcs & Elves II", msg, NULL);
     sceKernelExitProcess(1);
 #endif
     return 1;

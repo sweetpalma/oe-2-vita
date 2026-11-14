@@ -11,8 +11,9 @@
 ## Installation
 
 - Download the [latest release](https://github.com/sweetpalma/oe-2-vita/releases).
-- Install the `.vpk` file to your Vita.
-- That's all!
+- Install `oe2.vpk` on your Vita using VitaShell.
+- Obtain official `orcsandelves2.bar` and `orcsandelves2.mod` files, and copy them to `ux0:data/oe2/` on your Vita.
+- Enjoy!
 
 ## Controls
 
