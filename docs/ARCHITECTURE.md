@@ -9,9 +9,8 @@ This document details the architectural layout, core subsystems, execution lifec
 ```
 .
 ├── docs/                   # Technical documentation and findings
-├── data/                   # Original game assets (.bar, .mod, audio) - ignored by Git
+├── data/                   # Original game assets (.bar, .mod) - ignored by Git
 ├── tools/                  # Build scripts, asset decoders, font generators, vitasdk vendor
-│   ├── build_audio.py      # Extracts & decodes audio from .bar into PCM
 │   ├── build_pc.py         # Automated PC builds
 │   └── build_vita.py       # Complete Vita VPK package pipeline
 └── src/
@@ -148,9 +147,9 @@ The game relies on two primary data files:
 
 ### 4.3. Audio Pipeline
 
-- Mobile BREW audio uses Qualcomm QCELP-13k compression (`.pmd` resources in `.bar`).
-- `tools/build_audio.py` uses `libavcodec` to decode all `.pmd` audio files offline into 16-bit mono 22050 Hz PCM files in `data/audio/`.
-- On PS Vita, `src/vita/pmd_vita.c` reads these pre-decoded raw PCM files directly into memory, bypassing the need for heavy software audio decoding at runtime.
+- Mobile BREW audio uses Qualcomm QCELP-13k compression (`.pmd` CMF resources in `.bar`).
+- Both PC and PS Vita embed a standalone, zero-dependency QCELP-13k audio decoder (`src/engine/src/qcelp.c`).
+- Audio is decoded on demand directly from `.bar` in memory and cached on first play, requiring no offline preprocessing or external audio files.
 
 ---
 

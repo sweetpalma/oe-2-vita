@@ -2,16 +2,11 @@
 """Build Orcs & Elves II for PS Vita (.vpk) with Classic + Remastered lighting."""
 from pathlib import Path
 import argparse
-import gzip
 import hashlib
 import os
 import shutil
-import struct
 import subprocess
 import sys
-import zlib
-
-from build_audio import build_audio
 
 ROOT = Path(__file__).resolve().parents[1]
 VITASDK = Path(os.environ.get("VITASDK", str(ROOT / "tools/vendor/vitasdk")))
@@ -47,15 +42,6 @@ def verify_data():
             raise RuntimeError(f"Missing or invalid {path} (expected BREW 7.0.41)")
 
 
-def ensure_audio():
-    audio_dir = DATA_DIR / "audio"
-    existing = list(audio_dir.glob("*.pcm")) if audio_dir.is_dir() else []
-    if len(existing) != 115 or not (audio_dir / "0579a450-68387.pcm").is_file():
-        build_audio(DATA_DIR / "orcsandelves2.bar", audio_dir, force=True)
-    if not audio_dir.is_dir() or not any(audio_dir.glob("*.pcm")):
-        raise RuntimeError(f"No PCM audio files found in {audio_dir}")
-
-
 def setup_livearea():
     assets_dir = ROOT / "src/vita/assets"
     sce_sys_dir = STAGE / "sce_sys"
@@ -68,9 +54,6 @@ def setup_livearea():
             f"LiveArea assets not found in {assets_dir} and game data not found in {DATA_DIR}.\n"
             "Run 'python3 tools/build_livearea.py' with game data first."
         )
-
-
-
 
 
 def sdl2_libs() -> list[str]:
@@ -96,8 +79,9 @@ def build_vita_elf(bundle_data: bool = False):
     game_sources = [
         ROOT / "src/engine/src/bar.c",
         ROOT / "src/engine/src/moddata.c",
+        ROOT / "src/engine/src/pmd.c",
+        ROOT / "src/engine/src/qcelp.c",
         *sorted((ROOT / "src/engine/src/game").glob("*.c")),
-        ROOT / "src/vita/pmd_vita.c",
         ROOT / "src/vita/platform_vita.c",
         ROOT / "src/vita/main_vita.c",
     ]
@@ -187,8 +171,6 @@ def build_vita_elf(bundle_data: bool = False):
         stage_data.mkdir(parents=True, exist_ok=True)
         for name in ("orcsandelves2.bar", "orcsandelves2.mod"):
             shutil.copy2(DATA_DIR / name, stage_data / name)
-        if (DATA_DIR / "audio").is_dir():
-            shutil.copytree(DATA_DIR / "audio", stage_data / "audio", dirs_exist_ok=True)
 
     BUILD_ROOT.mkdir(parents=True, exist_ok=True)
     vpk_path = BUILD_ROOT / "oe2.vpk"
@@ -211,7 +193,7 @@ def parse_args():
     parser.add_argument(
         "--bundle-data",
         action="store_true",
-        help="Bundle .bar, .mod, and audio inside the VPK (only for private/testing builds, NOT for release)",
+        help="Bundle .bar and .mod inside the VPK (only for private/testing builds, NOT for release)",
     )
     return parser.parse_args()
 
@@ -220,7 +202,6 @@ def main():
     args = parse_args()
     if args.bundle_data:
         verify_data()
-        ensure_audio()
     if STAGE.exists():
         shutil.rmtree(STAGE)
     setup_livearea()

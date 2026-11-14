@@ -20,7 +20,8 @@ The pure reconstructed game engine, faithfully preserving the original BREW 7.0.
 - **Data & Archive Loaders:**
   - `bar.c` / `bar.h`: BREW Binary App Resource (`.bar`) directory and resource extractor.
   - `moddata.c` / `moddata.h`: Reads original compiled static tables from `data/orcsandelves2.mod`.
-  - `pmd.c` / `pmd.h`: QCELP-13k audio decode pipeline using system `libavcodec`.
+  - `pmd.c` / `pmd.h`: Qualcomm CMF wave track extractor.
+  - `qcelp.c` / `qcelp.h`: Embedded standalone QCELP-13k audio decoder (shared between PC and Vita).
 
 ## Host Bridge
 
@@ -43,4 +44,3 @@ Platform-specific backend tailored for the PS Vita hardware:
   - **Controls:** Direct `SceCtrl` sampling with analog stick deadzones, face buttons, shoulder triggers, and merchant offer adjustments.
   - **Audio:** SceAudio / SDL2 audio output with Kaiser-windowed sinc resampler.
   - **Storage:** Redirects saves and configuration to `ux0:data/oe2/`.
-- **`pmd_vita.c`:** Fast, low-overhead pre-decoded PCM audio loader from `ux0:data/oe2/audio/` (or `app0:data/audio/`).

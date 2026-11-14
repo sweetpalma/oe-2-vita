@@ -5,16 +5,14 @@
  * QCELP-13k audio in 0xF1 "wave" events (draft-atarius-cmf-00). Each event is
  *   FF F1 <u16 len> <u16 codec=0x0044> <u32 total> <u8 seq> <len-7 bytes of QCELP packets>
  * Packets are variable rate: a rate byte, then 0/3/7/16/34 payload bytes.
- * libavcodec's QCELP decoder turns them into 160-sample frames at 8 kHz.
+ * Decoded directly to 8 kHz 16-bit mono PCM via embedded QCELP-13k decoder.
  */
 #include "pmd.h"
+#include "qcelp.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include <libavcodec/avcodec.h>
-#include <libavutil/channel_layout.h>
-#include <libavutil/log.h>
 
 static unsigned be16(const uint8_t *p) { return (p[0] << 8) | p[1]; }
 static uint32_t be32(const uint8_t *p) { return ((uint32_t)p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]; }
@@ -31,54 +29,15 @@ static int payload_len(unsigned rate)
 	}
 }
 
-typedef struct {
-	int16_t *s;
-	int n, cap;
-} Pcm;
-
-static int pcm_frame(Pcm *o, const AVFrame *fr)
-{
-	const float *src = (const float *)fr->data[0];
-	if (o->n + fr->nb_samples > o->cap) {
-		int cap = o->cap ? o->cap * 2 : 8192;
-		int16_t *ns;
-		while (cap < o->n + fr->nb_samples)
-			cap *= 2;
-		ns = realloc(o->s, (size_t)cap * sizeof(int16_t));
-		if (!ns)
-			return -1;
-		o->s = ns;
-		o->cap = cap;
-	}
-	for (int i = 0; i < fr->nb_samples; i++) {
-		float v = src[i];
-		v = v > 1.f ? 1.f : v < -1.f ? -1.f : v;
-		o->s[o->n++] = (int16_t)(v * 32767.f);
-	}
-	return 0;
-}
-
-static int drain(AVCodecContext *ctx, AVFrame *fr, Pcm *o)
-{
-	for (;;) {
-		int r = avcodec_receive_frame(ctx, fr);
-		if (r == AVERROR(EAGAIN) || r == AVERROR_EOF)
-			return 0;
-		if (r < 0 || fr->format != AV_SAMPLE_FMT_FLT || pcm_frame(o, fr) != 0)
-			return -1;
-		av_frame_unref(fr);
-	}
-}
-
 int Pmd_decode(const uint8_t *cmf, size_t len, int16_t **pcm, int *samples)
 {
-	const AVCodec *codec;
-	AVCodecContext *ctx = NULL;
-	AVPacket *pkt = NULL;
-	AVFrame *fr = NULL;
-	Pcm out = { 0 };
-	uint8_t padded[64 + AV_INPUT_BUFFER_PADDING_SIZE];
-	size_t p, end, i;
+	QCELPContext *ctx = NULL;
+	size_t p, end;
+	int waveVolume = 63;
+	float frame[160];
+	int cap = 8192;
+	int n = 0;
+	int16_t *s = NULL;
 	int ok = -1;
 
 	*pcm = NULL;
@@ -94,35 +53,22 @@ int Pmd_decode(const uint8_t *cmf, size_t len, int16_t **pcm, int *samples)
 		end = len;
 	p += 8;
 
-	av_log_set_level(AV_LOG_ERROR);
-	codec = avcodec_find_decoder(AV_CODEC_ID_QCELP);
-	if (!codec)
+	s = (int16_t *)malloc(cap * sizeof(int16_t));
+	if (!s)
 		return -1;
-	ctx = avcodec_alloc_context3(codec);
-	pkt = av_packet_alloc();
-	fr = av_frame_alloc();
-	if (!ctx || !pkt || !fr)
-		goto done;
-	ctx->sample_rate = 8000;
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59, 24, 100)
-	av_channel_layout_default(&ctx->ch_layout, 1);
-#else
-	ctx->channels = 1;
-	ctx->channel_layout = AV_CH_LAYOUT_MONO;
-#endif
-	if (avcodec_open2(ctx, codec, NULL) < 0)
-		goto done;
 
-	/* FF E8 vv: wave-channel volume (channel in bits 7-6, 6-bit level), set per resource by the authors (52..63
-	 * in this game; a few files have none). The phone's CMF player applied it; we scale linearly since its
-	 * exact curve is unknown. */
-	int waveVolume = 63;
+	ctx = qcelp_create();
+	if (!ctx) {
+		free(s);
+		return -1;
+	}
+
 	while (p + 2 <= end) {
 		unsigned b0, cmd;
 		p++; /* delta time */
 		b0 = cmf[p++];
 		if (b0 != 0xFF) {
-			p += 2; /* note event (gate + velocity/octave); unused by wave tracks */
+			p += 2; /* note event; unused by wave tracks */
 			continue;
 		}
 		if (p >= end)
@@ -141,12 +87,21 @@ int Pmd_decode(const uint8_t *cmf, size_t len, int16_t **pcm, int *samples)
 					int pay = payload_len(*q);
 					if (pay < 0 || q + 1 + pay > qe)
 						break;
-					memset(padded, 0, sizeof(padded));
-					memcpy(padded, q, (size_t)(1 + pay));
-					pkt->data = padded;
-					pkt->size = 1 + pay;
-					if (avcodec_send_packet(ctx, pkt) < 0 || drain(ctx, fr, &out) != 0)
-						goto done;
+					if (qcelp_decode_packet(ctx, q, 1 + pay, frame) == 0) {
+						if (n + 160 > cap) {
+							while (cap < n + 160)
+								cap *= 2;
+							int16_t *ns = (int16_t *)realloc(s, cap * sizeof(int16_t));
+							if (!ns)
+								goto done;
+							s = ns;
+						}
+						for (int k = 0; k < 160; k++) {
+							float v = frame[k];
+							v = v > 1.f ? 1.f : v < -1.f ? -1.f : v;
+							s[n++] = (int16_t)(v * 32767.f);
+						}
+					}
 					q += 1 + pay;
 				}
 			}
@@ -157,24 +112,20 @@ int Pmd_decode(const uint8_t *cmf, size_t len, int16_t **pcm, int *samples)
 			p++; /* one-byte parameter */
 		}
 	}
-	pkt->data = NULL;
-	pkt->size = 0;
-	avcodec_send_packet(ctx, NULL);
-	drain(ctx, fr, &out);
-	if (waveVolume < 63)
-		for (int k = 0; k < out.n; k++)
-			out.s[k] = (int16_t)(out.s[k] * waveVolume / 63);
+
+	if (waveVolume < 63) {
+		for (int k = 0; k < n; k++)
+			s[k] = (int16_t)(s[k] * waveVolume / 63);
+	}
 	ok = 0;
+
 done:
-	av_frame_free(&fr);
-	av_packet_free(&pkt);
-	avcodec_free_context(&ctx);
-	(void)i;
+	qcelp_free(ctx);
 	if (ok != 0) {
-		free(out.s);
+		free(s);
 		return -1;
 	}
-	*pcm = out.s;
-	*samples = out.n;
+	*pcm = s;
+	*samples = n;
 	return 0;
 }

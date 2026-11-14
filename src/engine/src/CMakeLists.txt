@@ -1,6 +1,6 @@
-add_library(oe2core STATIC bar.c pmd.c moddata.c)
+add_library(oe2core STATIC bar.c pmd.c qcelp.c moddata.c)
 target_include_directories(oe2core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(oe2core PUBLIC PkgConfig::ZLIB PkgConfig::LIBAV)
+target_link_libraries(oe2core PUBLIC PkgConfig::ZLIB)
 
 add_executable(oe2tool tools/oe2tool.c)
 target_link_libraries(oe2tool PRIVATE oe2core)
